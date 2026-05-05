@@ -68,67 +68,180 @@ void SpectreLookAndFeel::drawRotarySlider (juce::Graphics& g,
                                            float rotaryEndAngle,
                                            juce::Slider& slider)
 {
-    const auto bounds  = juce::Rectangle<int> (x, y, width, height).toFloat();
-    const auto centre  = bounds.getCentre();
-    const auto outerR  = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
-    const auto innerR  = outerR * 0.75f;     // 48/64 of the outer
-    const auto thumbA  = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
-    const bool active  = sliderPos > 0.0f && slider.isEnabled();
+    // Tactile knob render, layered:
+    //   1. base shadow ring  (under-the-knob depth)
+    //   2. outer track groove (recessed dark ring carrying the conic indicator)
+    //   3. conic indicator + glow halo
+    //   4. cap base fill with overhead-lighting gradient
+    //   5. cap top highlight + bottom inner shadow (simulates a domed surface)
+    //   6. centre detent (subtle hardware-like pivot mark)
+    //   7. indicator line: bright core + outer halo + thin specular highlight
 
-    // 1. Outer container: surface-bright fill, outline-variant ring.
-    g.setColour (surfaceBright);
-    g.fillEllipse (bounds.reduced (1.0f));
-    g.setColour (outlineVariant);
-    g.drawEllipse (bounds.reduced (1.0f), 2.0f);
+    const auto bounds = juce::Rectangle<int> (x, y, width, height).toFloat();
+    const auto centre = bounds.getCentre();
+    const auto outerR = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
+    const auto trackR = outerR * 0.94f;
+    const auto innerR = outerR * 0.72f;
+    const auto thumbA = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
+    const bool active = sliderPos > 0.0f && slider.isEnabled();
+    const bool hover  = slider.isMouseOverOrDragging (true);
 
-    // 2. Conic ring (toxic 50%, fills clockwise from start angle to thumb).
+    const auto toxicMain   = hover ? toxicGlow : toxic;
+    const auto haloAlpha   = hover ? 0.45f     : 0.30f;  // +50% vs first pass
+    const auto coreAlpha   = hover ? 1.00f     : 0.95f;
+
+    // 1. Base shadow ring just below the knob - a single soft dark band that
+    //    sells the impression that the knob sits ON the panel, not in it.
+    {
+        const auto shadowBounds = juce::Rectangle<float> (outerR * 2.0f, outerR * 2.0f)
+                                    .withCentre (centre.translated (0.0f, outerR * 0.06f));
+        juce::ColourGradient shadowGrad (
+            juce::Colours::black.withAlpha (0.45f),
+            shadowBounds.getCentreX(), shadowBounds.getCentreY(),
+            juce::Colours::transparentBlack,
+            shadowBounds.getCentreX(), shadowBounds.getBottom() + 2.0f,
+            true);
+        g.setGradientFill (shadowGrad);
+        g.fillEllipse (shadowBounds.expanded (2.0f));
+    }
+
+    // 2. Outer track groove. A recessed dark ring with a hairline rim catches
+    //    the conic fill; the rim alone is the same as the old simple outline.
+    {
+        juce::Path track;
+        track.addCentredArc (centre.x, centre.y, trackR, trackR,
+                             0.0f, rotaryStartAngle, rotaryEndAngle, true);
+        g.setColour (surfaceContainerLowest);
+        g.strokePath (track, juce::PathStrokeType (5.5f, juce::PathStrokeType::curved,
+                                                          juce::PathStrokeType::rounded));
+        g.setColour (outlineVariant.withAlpha (0.55f));
+        g.strokePath (track, juce::PathStrokeType (1.0f, juce::PathStrokeType::curved,
+                                                          juce::PathStrokeType::rounded));
+    }
+
+    // 3. Conic indicator + soft halo. Painted as three stacked arcs (outer
+    //    bloom, mid halo, bright core) so the glow has perceptible depth.
     if (active)
     {
         juce::Path arc;
-        arc.addCentredArc (centre.x, centre.y,
-                           outerR - 4.0f, outerR - 4.0f,
-                           0.0f,
-                           rotaryStartAngle, thumbA,
-                           true);
-        g.setColour (toxic.withAlpha (0.55f));
-        g.strokePath (arc, juce::PathStrokeType (3.5f, juce::PathStrokeType::curved,
-                                                 juce::PathStrokeType::rounded));
+        arc.addCentredArc (centre.x, centre.y, trackR, trackR,
+                           0.0f, rotaryStartAngle, thumbA, true);
 
-        // Soft outer glow ring at low alpha
-        juce::Path glow;
-        glow.addCentredArc (centre.x, centre.y,
-                            outerR - 4.0f, outerR - 4.0f,
-                            0.0f, rotaryStartAngle, thumbA, true);
-        g.setColour (toxic.withAlpha (0.18f));
-        g.strokePath (glow, juce::PathStrokeType (8.0f, juce::PathStrokeType::curved,
-                                                  juce::PathStrokeType::rounded));
+        // outer bloom
+        g.setColour (toxicMain.withAlpha (haloAlpha * 0.55f));
+        g.strokePath (arc, juce::PathStrokeType (16.0f, juce::PathStrokeType::curved,
+                                                        juce::PathStrokeType::rounded));
+        // mid halo
+        g.setColour (toxicMain.withAlpha (haloAlpha));
+        g.strokePath (arc, juce::PathStrokeType (9.0f, juce::PathStrokeType::curved,
+                                                       juce::PathStrokeType::rounded));
+        // bright core
+        g.setColour (toxicMain.withAlpha (coreAlpha));
+        g.strokePath (arc, juce::PathStrokeType (5.0f, juce::PathStrokeType::curved,
+                                                       juce::PathStrokeType::rounded));
     }
 
-    // 3. Inner cap.
-    const auto innerBounds = juce::Rectangle<float> (innerR * 2.0f, innerR * 2.0f).withCentre (centre);
-    g.setColour (surfaceContainerHighest);
-    g.fillEllipse (innerBounds);
-    g.setColour (surfaceBright);
-    g.drawEllipse (innerBounds.reduced (0.5f), 1.0f);
-
-    // 4. Indicator line at thumb angle. Always points outward from the cap
-    //    centre toward the rim. Length is half the inner radius.
-    const auto needleColour = active ? toxic : mutedForeground;
-    juce::Path needle;
-    const float needleW = juce::jmax (1.5f, outerR * 0.06f);
-    const float needleL = innerR * 0.65f;
-    needle.addRoundedRectangle (-needleW * 0.5f, -innerR * 0.95f,
-                                 needleW,         needleL,
-                                 needleW * 0.4f);
-    g.setColour (needleColour);
-    g.fillPath (needle, juce::AffineTransform::rotation (thumbA).translated (centre));
-    if (active)
+    // 4. Cap fill. Overhead lighting via a vertical gradient: brighter at the
+    //    top, darker at the bottom. Range extended so the dome reads stronger.
+    const auto capBounds = juce::Rectangle<float> (innerR * 2.0f, innerR * 2.0f).withCentre (centre);
     {
-        // soft halo
-        g.setColour (toxic.withAlpha (0.25f));
-        g.fillPath (needle, juce::AffineTransform::scale (1.6f, 1.4f, 0.0f, -innerR * 0.65f)
-                                                  .rotated (thumbA)
-                                                  .translated (centre));
+        juce::ColourGradient capGrad (
+            surfaceBright.brighter (0.20f),             capBounds.getCentreX(), capBounds.getY(),
+            surfaceContainerLowest,                     capBounds.getCentreX(), capBounds.getBottom(),
+            false);
+        capGrad.addColour (0.40, surfaceContainerHighest);
+        capGrad.addColour (0.85, surfaceContainerLow);
+        g.setGradientFill (capGrad);
+        g.fillEllipse (capBounds);
+    }
+
+    // 5a. Top highlight - off-white arc on the upper edge. Longer + stronger
+    //     reads as a more reflective surface (Throat-Wire territory).
+    {
+        juce::Path topHi;
+        topHi.addCentredArc (centre.x, centre.y,
+                             innerR - 1.2f, innerR - 1.2f, 0.0f,
+                             juce::degreesToRadians (-78.0f),
+                             juce::degreesToRadians ( 78.0f), true);
+        g.setColour (onSurface.withAlpha (0.30f));
+        g.strokePath (topHi, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved,
+                                                         juce::PathStrokeType::rounded));
+
+        // Plus a brighter spec arc tighter to top centre for the wet shine.
+        juce::Path specArc;
+        specArc.addCentredArc (centre.x, centre.y,
+                               innerR - 2.5f, innerR - 2.5f, 0.0f,
+                               juce::degreesToRadians (-30.0f),
+                               juce::degreesToRadians ( 30.0f), true);
+        g.setColour (juce::Colours::white.withAlpha (0.22f));
+        g.strokePath (specArc, juce::PathStrokeType (1.2f, juce::PathStrokeType::curved,
+                                                            juce::PathStrokeType::rounded));
+    }
+
+    // 5b. Bottom inner shadow - a deeper line on the lower edge of the cap so
+    //     the dome doesn't look pasted on.
+    {
+        juce::Path bottomShade;
+        bottomShade.addCentredArc (centre.x, centre.y,
+                                   innerR - 1.2f, innerR - 1.2f, 0.0f,
+                                   juce::degreesToRadians (135.0f),
+                                   juce::degreesToRadians (225.0f), true);
+        g.setColour (juce::Colours::black.withAlpha (0.40f));
+        g.strokePath (bottomShade, juce::PathStrokeType (1.4f, juce::PathStrokeType::curved,
+                                                                juce::PathStrokeType::rounded));
+    }
+
+    // 5c. Cap rim outline (1 px, just inside the highlight) for crisp edge.
+    g.setColour (surfaceContainerLowest);
+    g.drawEllipse (capBounds.reduced (0.5f), 1.0f);
+
+    // 6. Centre detent - tiny darker pit at the rotation pivot. Sells the
+    //    "real machined hardware" feeling without dominating the glyph.
+    {
+        const float dotR = innerR * 0.05f;
+        const auto dotBounds = juce::Rectangle<float> (dotR * 2.0f, dotR * 2.0f).withCentre (centre);
+        g.setColour (surfaceContainerLowest);
+        g.fillEllipse (dotBounds);
+    }
+
+    // 7. Indicator line: build at 12 o'clock and rotate to thumbA.
+    {
+        const float needleW = juce::jmax (2.0f, outerR * 0.07f);
+        const float needleL = innerR * 0.55f;
+        const float needleOuter = innerR * 0.95f;
+
+        const auto rotate = juce::AffineTransform::rotation (thumbA).translated (centre);
+
+        if (active)
+        {
+            // Outer halo
+            juce::Path halo;
+            halo.addRoundedRectangle (-needleW,           -needleOuter - needleW * 0.4f,
+                                       needleW * 2.0f,    needleL + needleW * 0.8f,
+                                       needleW);
+            g.setColour (toxicMain.withAlpha (0.32f * (hover ? 1.2f : 1.0f)));
+            g.fillPath (halo, rotate);
+        }
+
+        // Bright core
+        juce::Path needle;
+        needle.addRoundedRectangle (-needleW * 0.5f, -needleOuter,
+                                     needleW,         needleL,
+                                     needleW * 0.45f);
+        g.setColour (active ? toxicMain : mutedForeground);
+        g.fillPath (needle, rotate);
+
+        // Specular highlight - a slightly brighter sliver running along one
+        // side of the needle so it reads as 3D rather than a printed mark.
+        if (active)
+        {
+            juce::Path spec;
+            spec.addRoundedRectangle (-needleW * 0.5f + needleW * 0.15f, -needleOuter + needleW * 0.5f,
+                                       needleW * 0.18f,                    needleL - needleW * 1.0f,
+                                       needleW * 0.18f);
+            g.setColour (juce::Colours::white.withAlpha (0.45f));
+            g.fillPath (spec, rotate);
+        }
     }
 }
 
