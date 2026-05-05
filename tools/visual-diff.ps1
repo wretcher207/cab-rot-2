@@ -44,6 +44,10 @@
   plugin. Used to capture a reference frame for diffing against the Stitch
   HTML reference.
 
+.PARAMETER WindowSize
+  Optional WIDTHxHEIGHT to resize the Standalone window before capture.
+  Used by Phase 2 resize stress tests, e.g. -WindowSize 1000x650.
+
 .EXAMPLE
   .\tools\visual-diff.ps1
   .\tools\visual-diff.ps1 -Configuration Debug -OutPath design\screenshots\debug.png
@@ -59,7 +63,8 @@ param(
   [string] $ReferencePath,
   [int]    $WaitSeconds = 10,
   [switch] $NoCrop,
-  [switch] $ThemeTest
+  [switch] $ThemeTest,
+  [string] $WindowSize
 )
 
 $ErrorActionPreference = 'Stop'
@@ -128,6 +133,7 @@ public class CabRotSnap {
   [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref POINT p);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint f);
+  [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr h, int x, int y, int w, int h2, bool repaint);
   [StructLayout(LayoutKind.Sequential)] public struct RECT  { public int L,T,R,B; }
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X,Y; }
 }
@@ -143,12 +149,34 @@ try {
         throw "MainWindowHandle still zero after $WaitSeconds seconds. App may have crashed; check Event Viewer."
     }
 
+    if ($WindowSize) {
+        if ($WindowSize -notmatch '^(\d+)x(\d+)$') { throw "WindowSize must be WIDTHxHEIGHT, e.g. 1000x650" }
+        $tw = [int]$Matches[1]
+        $th = [int]$Matches[2]
+        # Keep current top-left, resize from there. JUCE Standalone has aspect
+        # constraints so the actual window may snap to the nearest valid size.
+        $rg = New-Object CabRotSnap+RECT
+        [CabRotSnap]::GetWindowRect($hwnd, [ref]$rg) | Out-Null
+        [CabRotSnap]::MoveWindow($hwnd, $rg.L, $rg.T, $tw, $th, $true) | Out-Null
+        Start-Sleep -Seconds 1
+    }
+
     $r = New-Object CabRotSnap+RECT
     [CabRotSnap]::GetWindowRect($hwnd, [ref]$r) | Out-Null
     $w = $r.R - $r.L
     $h = $r.B - $r.T
     if ($w -lt 100 -or $h -lt 100) {
-        throw "Window too small ($w x $h). Probably captured a launcher window. Try a longer -WaitSeconds."
+        # JUCE Standalone occasionally pops a transient audio-settings dialog
+        # whose handle wins the MainWindowHandle race. Sleep once and retry
+        # before declaring failure - the dialog dismisses itself when audio
+        # settings are valid.
+        Start-Sleep -Seconds 2
+        [CabRotSnap]::GetWindowRect($hwnd, [ref]$r) | Out-Null
+        $w = $r.R - $r.L
+        $h = $r.B - $r.T
+        if ($w -lt 100 -or $h -lt 100) {
+            throw "Window too small ($w x $h). Probably captured a launcher window. Try a longer -WaitSeconds."
+        }
     }
 
     $bmp = New-Object System.Drawing.Bitmap($w, $h)

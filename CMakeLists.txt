@@ -99,16 +99,52 @@ set_target_properties(CabRotBinaryData PROPERTIES
     POSITION_INDEPENDENT_CODE TRUE
     FOLDER                    "Generated")
 
-set(CABROT_SHARED_SOURCES
-    Source/PluginProcessor.cpp
-    Source/PluginProcessor.h
-    Source/PluginEditor.cpp
-    Source/PluginEditor.h
+set(CABROT_THEME_SOURCES
     Source/Theme/Palette.h
     Source/Theme/Fonts.h
     Source/Theme/Fonts.cpp
     Source/Theme/SpectreLookAndFeel.h
     Source/Theme/SpectreLookAndFeel.cpp
+)
+
+set(CABROT_UI_ATOMS
+    Source/UI/atoms/DpdMark.h
+    Source/UI/atoms/DpdMark.cpp
+    Source/UI/atoms/GhostToggle.h
+    Source/UI/atoms/GhostToggle.cpp
+    Source/UI/atoms/LivePill.h
+    Source/UI/atoms/LivePill.cpp
+    Source/UI/atoms/MeterPill.h
+    Source/UI/atoms/MeterPill.cpp
+    Source/UI/atoms/ModeButton.h
+    Source/UI/atoms/ModeButton.cpp
+    Source/UI/atoms/SpectreKnob.h
+    Source/UI/atoms/SpectreKnob.cpp
+)
+
+set(CABROT_UI_REGIONS
+    Source/UI/AmpProfileGrid.h
+    Source/UI/AmpProfileGrid.cpp
+    Source/UI/FizzReadout.h
+    Source/UI/FizzReadout.cpp
+    Source/UI/FooterBar.h
+    Source/UI/FooterBar.cpp
+    Source/UI/HeaderBar.h
+    Source/UI/HeaderBar.cpp
+    Source/UI/KnobRow.h
+    Source/UI/KnobRow.cpp
+    Source/UI/WaspMeter.h
+    Source/UI/WaspMeter.cpp
+)
+
+set(CABROT_SHARED_SOURCES
+    Source/PluginProcessor.cpp
+    Source/PluginProcessor.h
+    Source/PluginEditor.cpp
+    Source/PluginEditor.h
+    ${CABROT_THEME_SOURCES}
+    ${CABROT_UI_ATOMS}
+    ${CABROT_UI_REGIONS}
 )
 
 target_sources(CabRot PRIVATE ${CABROT_SHARED_SOURCES})
