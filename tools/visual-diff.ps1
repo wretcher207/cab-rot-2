@@ -32,6 +32,12 @@
 .PARAMETER WaitSeconds
   Seconds to wait after launch before capture. Default 10.
 
+.PARAMETER NoCrop
+  By default the JUCE Standalone window chrome (OS title bar + the yellow
+  "Audio input is muted" warning row) is cropped out so the saved PNG shows
+  only the editor area, which is what a host like Reaper renders. Pass this
+  switch to keep the full window in the image.
+
 .EXAMPLE
   .\tools\visual-diff.ps1
   .\tools\visual-diff.ps1 -Configuration Debug -OutPath design\screenshots\debug.png
@@ -44,7 +50,8 @@ param(
   [switch] $SkipBuild,
   [string] $OutPath,
   [string] $ReferencePath,
-  [int]    $WaitSeconds = 10
+  [int]    $WaitSeconds = 10,
+  [switch] $NoCrop
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,8 +111,11 @@ using System;
 using System.Runtime.InteropServices;
 public class CabRotSnap {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref POINT p);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint f);
-  [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
+  [StructLayout(LayoutKind.Sequential)] public struct RECT  { public int L,T,R,B; }
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X,Y; }
 }
 "@
 
@@ -135,6 +145,25 @@ try {
     $g.Dispose()
 
     if (-not $ok) { $bmp.Dispose(); throw "PrintWindow returned false." }
+
+    if (-not $NoCrop) {
+        # The JUCE Standalone wraps our editor in a window that has:
+        #   - OS title bar (varies with DPI / theme)
+        #   - "Audio input is muted to avoid feedback loop" warning row (~32px)
+        #   - then the editor itself, which is what Reaper actually shows.
+        # We crop to the BOTTOM portion of the captured image such that the
+        # final aspect ratio matches the editor's locked 1200x780 (1.538:1).
+        $editorRatio  = 1200.0 / 780.0
+        $editorHeight = [int][math]::Round($w / $editorRatio)
+        if ($editorHeight -lt $h) {
+            $cropY  = $h - $editorHeight
+            $crop   = New-Object System.Drawing.Rectangle 0, $cropY, $w, $editorHeight
+            $cbmp   = $bmp.Clone($crop, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+            $bmp.Dispose()
+            $bmp = $cbmp
+            $w = $bmp.Width; $h = $bmp.Height
+        }
+    }
 
     $bmp.Save($OutPath, [System.Drawing.Imaging.ImageFormat]::Png)
     $bmp.Dispose()

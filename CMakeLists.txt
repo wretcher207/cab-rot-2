@@ -43,7 +43,12 @@ endif()
 set(CABROT_VST3_COPY_DIR "${_default_vst3_dir}"
     CACHE PATH "Where the built VST3 is copied after each build (user-scope by default)")
 
-option(CABROT_COPY_AFTER_BUILD "Copy VST3 to CABROT_VST3_COPY_DIR after each build" ON)
+# OFF by default. If Reaper has the VST3 loaded, the post-build copy fails
+# because Windows holds the file open. Iterate by pointing Reaper at the
+# build artefact dir, or run tools/install-vst3.ps1 once you've closed
+# whichever DAW session is holding the file. -DCABROT_COPY_AFTER_BUILD=ON
+# forces the old behaviour for first-time installs.
+option(CABROT_COPY_AFTER_BUILD "Copy VST3 to CABROT_VST3_COPY_DIR after each build" OFF)
 
 # ----------------------------------------------------------------------------
 # Plugin target
@@ -76,6 +81,24 @@ juce_add_plugin(CabRot
 
 juce_generate_juce_header(CabRot)
 
+# ----------------------------------------------------------------------------
+# Bundled fonts -> BinaryData (no runtime CDN, no external dependency).
+# Phase 1 will add Space Grotesk Black (900) + the rest of the weight ladder.
+# ----------------------------------------------------------------------------
+juce_add_binary_data(CabRotBinaryData
+    HEADER_NAME BinaryData.h
+    NAMESPACE   BinaryData
+    SOURCES
+        Resources/fonts/SpaceGrotesk-Regular.ttf
+        Resources/fonts/SpaceGrotesk-Medium.ttf
+        Resources/fonts/SpaceGrotesk-Bold.ttf
+        Resources/fonts/JetBrainsMono-Regular.ttf
+        Resources/fonts/JetBrainsMono-Bold.ttf
+)
+set_target_properties(CabRotBinaryData PROPERTIES
+    POSITION_INDEPENDENT_CODE TRUE
+    FOLDER                    "Generated")
+
 target_sources(CabRot
     PRIVATE
         Source/PluginProcessor.cpp
@@ -95,6 +118,7 @@ target_compile_definitions(CabRot
 target_link_libraries(CabRot
     PRIVATE
         juce::juce_audio_utils
+        CabRotBinaryData
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
@@ -151,6 +175,7 @@ if(CABROT_BUILD_TESTS)
     target_link_libraries(CabRot_PassthroughTest
         PRIVATE
             juce::juce_audio_utils
+            CabRotBinaryData
             juce::juce_recommended_config_flags
             juce::juce_recommended_warning_flags)
 
