@@ -7,16 +7,11 @@ namespace cabrot
 {
 namespace
 {
-// Locked decision #6: continuous resize, aspect-locked. Min 1000x650,
-// default 1200x780, max 1600x1040. All three sizes share the same ratio.
 constexpr int    kDefaultWidth  = 1200;
 constexpr int    kDefaultHeight = 780;
 constexpr double kAspectRatio   = static_cast<double> (kDefaultWidth)
                                 / static_cast<double> (kDefaultHeight);
 
-// Canonical band sizes at default 1200x780. They scale linearly with editor
-// height so the layout breathes at min (1000x650) and max (1600x1040)
-// without the AMP PROFILE card being squeezed below useful height.
 constexpr int kHeaderHeight = 64;
 constexpr int kKnobsHeight  = 192;
 constexpr int kFooterHeight = 48;
@@ -45,6 +40,11 @@ CabRotEditor::CabRotEditor (CabRotProcessor& p)
     addAndMakeVisible (knobRow);
     addAndMakeVisible (footerBar);
 
+    wireAttachments();
+
+    addKeyListener (this);
+    setWantsKeyboardFocus (true);
+
     setResizable (true, true);
     setResizeLimits (1000, 650, 1600, 1040);
     getConstrainer()->setFixedAspectRatio (kAspectRatio);
@@ -53,18 +53,149 @@ CabRotEditor::CabRotEditor (CabRotProcessor& p)
 
 CabRotEditor::~CabRotEditor()
 {
+    removeKeyListener (this);
     setLookAndFeel (nullptr);
+}
+
+void CabRotEditor::wireAttachments()
+{
+    auto& av = apvts();
+
+    // Six main knobs - the order in KnobRow matches the param order.
+    const std::array<juce::String, 6> knobIds {
+        params::fizzHunt, params::edgePreserve, params::cabSmooth,
+        params::digitalSand, params::airRot, params::reapMix
+    };
+    knobAttachments.reserve (knobIds.size());
+    for (size_t i = 0; i < knobIds.size(); ++i)
+    {
+        auto& slider = knobRow.getKnob (static_cast<int> (i)).getSlider();
+        knobAttachments.push_back (
+            std::make_unique<SliderAttachment> (av, knobIds[i], slider));
+    }
+
+    // Mode buttons -> Choice parameter. ParameterAttachment's lambda fires
+    // both on host writes (automation, undo) and on local UI changes;
+    // dontSendNotification on setToggleState avoids feedback loops.
+    auto* modeParam = av.getParameter (params::mode);
+    jassert (modeParam != nullptr);
+
+    for (int i = 0; i < ui::AmpProfileGrid::kNumModes; ++i)
+    {
+        auto& button = ampProfile.getModeButton (i);
+        const int myIndex = i;
+
+        auto attachment = std::make_unique<juce::ParameterAttachment> (
+            *modeParam,
+            [&button, myIndex] (float v)
+            {
+                const bool isSelected = juce::roundToInt (v) == myIndex;
+                if (button.getToggleState() != isSelected)
+                    button.setToggleState (isSelected, juce::dontSendNotification);
+            });
+
+        attachment->sendInitialUpdate();
+        modeAttachments.push_back (std::move (attachment));
+
+        button.onClick = [&button, modeParam, myIndex]
+        {
+            if (button.getToggleState())
+            {
+                const auto normalised = modeParam->convertTo0to1 (static_cast<float> (myIndex));
+                modeParam->beginChangeGesture();
+                modeParam->setValueNotifyingHost (normalised);
+                modeParam->endChangeGesture();
+            }
+        };
+    }
+
+    // Boolean toggles
+    deltaAttachment = std::make_unique<ButtonAttachment> (
+        av, params::deltaListen, headerBar.getDeltaToggle());
+
+    // A/B is one bool with two visual buttons. JUCE's ButtonAttachment can
+    // only own one button, and the radio group only auto-deselects when a
+    // button is turned ON (not when one is turned OFF) - so a host write of
+    // aOrB=false would leave both A and B dark. Drive both buttons from a
+    // single ParameterAttachment instead.
+    auto* abParam = av.getParameter (params::aOrB);
+    jassert (abParam != nullptr);
+
+    auto& aButton = footerBar.getButtonA();
+    auto& bButton = footerBar.getButtonB();
+
+    abAttachment = std::make_unique<juce::ParameterAttachment> (
+        *abParam,
+        [&aButton, &bButton] (float v)
+        {
+            const bool isB = v >= 0.5f;
+            if (aButton.getToggleState() == isB)
+                aButton.setToggleState (! isB, juce::dontSendNotification);
+            if (bButton.getToggleState() != isB)
+                bButton.setToggleState (isB,   juce::dontSendNotification);
+        });
+    abAttachment->sendInitialUpdate();
+
+    aButton.onClick = [&aButton, abParam]
+    {
+        if (aButton.getToggleState())
+        {
+            abParam->beginChangeGesture();
+            abParam->setValueNotifyingHost (0.0f);
+            abParam->endChangeGesture();
+        }
+    };
+    bButton.onClick = [&bButton, abParam]
+    {
+        if (bButton.getToggleState())
+        {
+            abParam->beginChangeGesture();
+            abParam->setValueNotifyingHost (1.0f);
+            abParam->endChangeGesture();
+        }
+    };
+
+    // Oversample combo
+    osAttachment = std::make_unique<ComboBoxAttachment> (
+        av, params::oversampling, footerBar.getOversampleBox());
+
+    // Tooltips that refresh as the parameter changes. We rely on JUCE's
+    // built-in juce::Slider::getTooltip override returning the slider's
+    // setTooltip text; the SliderAttachment also routes parameter
+    // formatting through param.getText() for popup-menu "Enter value..."
+    // dialogs. No extra wiring needed.
+    headerBar.getDeltaToggle().setTooltip ("Delta Listen: hear the removed signal");
+    footerBar.getCryptButton() .setTooltip ("The Crypt: advanced parameters");
+    footerBar.getButtonA()     .setTooltip ("A/B: select snapshot A");
+    footerBar.getButtonB()     .setTooltip ("A/B: select snapshot B");
+    footerBar.getOversampleBox().setTooltip ("Oversampling factor");
+}
+
+bool CabRotEditor::keyPressed (const juce::KeyPress& key, juce::Component*)
+{
+    auto& um = processorRef.getUndoManager();
+    if (key == juce::KeyPress ('z', juce::ModifierKeys::commandModifier, 0))
+    {
+        um.undo();
+        return true;
+    }
+    if (key == juce::KeyPress ('z', juce::ModifierKeys::commandModifier
+                                   | juce::ModifierKeys::shiftModifier, 0)
+        || key == juce::KeyPress ('y', juce::ModifierKeys::commandModifier, 0))
+    {
+        um.redo();
+        return true;
+    }
+    return false;
 }
 
 void CabRotEditor::paint (juce::Graphics& g)
 {
     const auto bounds = getLocalBounds();
 
-    // Outer surface
     g.setColour (theme::surfaceContainerLowest);
     g.fillRect (bounds);
 
-    // Soft radial vignette - centre warm, edges deep
     juce::ColourGradient grad (
         theme::surfaceContainerLow,
         static_cast<float> (bounds.getCentreX()),
@@ -77,9 +208,6 @@ void CabRotEditor::paint (juce::Graphics& g)
 
     g.setColour (theme::outlineVariant.withAlpha (0.30f));
     g.drawRect (bounds.reduced (1), 1);
-
-    // Global scanline overlay rests on top of everything else; runs after
-    // child components paint, see paintOverChildren.
 }
 
 void CabRotEditor::resized()
