@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CAB ROT Plugin Interface</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;900&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "toxic-glow": "oklch(0.92 0.30 140)",
+                        "surface-container-highest": "#2d3829",
+                        "outline-variant": "#3c4b36",
+                        "on-background": "#dae6d1",
+                        "surface-container-high": "#232d1f",
+                        "on-primary": "#013a00",
+                        "secondary-fixed": "#d2e8d9",
+                        "on-primary-fixed": "#002200",
+                        "warning": "oklch(0.82 0.22 75)",
+                        "on-tertiary": "#432a21",
+                        "surface-tint": "#0fe605",
+                        "inverse-surface": "#dae6d1",
+                        "surface-container-lowest": "#071005",
+                        "secondary-container": "#384b40",
+                        "surface-dim": "#0c160a",
+                        "on-tertiary-fixed-variant": "#5c4036",
+                        "outline": "#85967d",
+                        "on-secondary": "#22342a",
+                        "tertiary-fixed-dim": "#e6beb0",
+                        "on-error-container": "#ffdad6",
+                        "tertiary-container": "#ffd5c7",
+                        "surface-elevated": "oklch(0.20 0.025 160)",
+                        "on-primary-container": "#037200",
+                        "on-tertiary-container": "#7a5a4f",
+                        "background": "oklch(0.12 0.015 160)",
+                        "toxic": "oklch(0.88 0.28 142)",
+                        "on-tertiary-fixed": "#2c160e",
+                        "border": "oklch(0.28 0.04 150 / 60%)",
+                        "secondary-fixed-dim": "#b6ccbd",
+                        "primary-container": "#40ff2f",
+                        "on-error": "#690005",
+                        "on-primary-fixed-variant": "#025300",
+                        "on-surface-variant": "#baccb1",
+                        "primary-fixed": "#77ff60",
+                        "inverse-on-surface": "#293325",
+                        "surface-container-low": "#141e11",
+                        "surface-variant": "#2d3829",
+                        "danger": "oklch(0.65 0.28 25)",
+                        "primary": "#f0ffe6",
+                        "on-secondary-fixed-variant": "#384b40",
+                        "tertiary-fixed": "#ffdbcf",
+                        "surface-bright": "#323c2d",
+                        "error-container": "#93000a",
+                        "surface": "oklch(0.16 0.02 160)",
+                        "surface-container": "#182215",
+                        "on-secondary-fixed": "#0d1f16",
+                        "foreground": "oklch(0.96 0.02 145)",
+                        "primary-fixed-dim": "#0fe605",
+                        "error": "#ffb4ab",
+                        "tertiary": "#fff9f8",
+                        "on-surface": "#dae6d1",
+                        "on-secondary-container": "#a5baac",
+                        "muted-foreground": "oklch(0.65 0.04 150)",
+                        "inverse-primary": "#036e00",
+                        "secondary": "#b6ccbd"
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.25rem",
+                        lg: "0.5rem",
+                        xl: "0.75rem",
+                        full: "9999px"
+                    },
+                    spacing: {
+                        "edge-margin": "1.25rem",
+                        "container-max": "448px",
+                        "section-gap": "2rem",
+                        "item-gap": "0.75rem",
+                        "safe-bottom": "8rem"
+                    },
+                    fontFamily: {
+                        "display-title": ["Space Grotesk"],
+                        "mono-data": ["JetBrains Mono"],
+                        "hero-num": ["Space Grotesk"],
+                        "body": ["Space Grotesk"],
+                        "ui-chrome": ["JetBrains Mono"]
+                    },
+                    fontSize: {
+                        "display-title": ["24px", { lineHeight: "1.2", letterSpacing: "-0.02em", fontWeight: "600" }],
+                        "mono-data": ["14px", { letterSpacing: "0.1em", fontWeight: "400" }],
+                        "hero-num": ["80px", { lineHeight: "1", letterSpacing: "-0.05em", fontWeight: "700" }],
+                        "body": ["16px", { lineHeight: "1.5", fontWeight: "400" }],
+                        "ui-chrome": ["11px", { letterSpacing: "0.3em", fontWeight: "500" }]
+                    },
+                    backgroundImage: {
+                        'scanline': 'linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.25) 51%)',
+                        'grid-pattern': 'linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px)'
+                    },
+                    backgroundSize: {
+                        'scanline': '100% 4px',
+                        'grid-pattern': '20px 20px'
+                    }
+                }
+            }
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .text-glow { text-shadow: 0 0 10px oklch(0.88 0.28 142), 0 0 20px oklch(0.88 0.28 142); }
+            .bg-glass { @apply bg-surface/80 backdrop-blur-md border border-outline-variant/50; }
+            .knob-track { background: conic-gradient(oklch(0.88 0.28 142) var(--value), transparent 0); }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex items-center justify-center font-body relative overflow-hidden antialiased">
+<!-- Global Scanline Overlay -->
+<div class="absolute inset-0 bg-scanline bg-scanline pointer-events-none z-50 opacity-20"></div>
+<!-- Background Glow Orbs -->
+<div class="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-toxic/10 blur-[120px] rounded-full pointer-events-none mix-blend-screen"></div>
+<div class="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-toxic/5 blur-[100px] rounded-full pointer-events-none mix-blend-screen"></div>
+<!-- Main App Container (Simulating Plugin Window) -->
+<main class="w-[1200px] h-[780px] bg-surface-container-lowest border border-outline-variant shadow-2xl rounded-xl relative flex flex-col z-10 overflow-hidden">
+<!-- Header -->
+<header class="h-16 border-b border-outline-variant bg-surface-container-low/90 backdrop-blur-sm flex items-center justify-between px-edge-margin flex-shrink-0">
+<div class="flex items-center gap-4">
+<h1 class="font-display-title text-display-title text-toxic tracking-tighter uppercase font-black">CAB ROT</h1>
+<div class="h-4 w-px bg-outline-variant"></div>
+<div class="flex items-center gap-2">
+<img alt="Dead Pixel Design Logo" class="w-4 h-4 grayscale opacity-70" data-alt="A minimal monochrome square logo mark representing Dead Pixel Design, featuring sharp geometric lines." src="https://lh3.googleusercontent.com/aida/ADBb0uiBg_f80UUUX1yR_7E_N2F1NbAuYyIYA-pJ036CMeenl9fH7J5vBupi0QxYuMQfkiu5TJp_by2LtZYOlITI-POJb372p1b9VX4zTCJsT7piT-ZZYN9Cv9UBAoDiFOJ1sNFQv0p0Jx7ueUpBSrvQsxZWDgx_UKEZZfCDpmSH_9Q7Ntubesn7--8gF1ZlzYwZ_cm6j6aJVPYAy9k5t0CKrx_Xo0FunFZi5QX3eQd9I-NzRmmWgqVtsc1vrno5tbNZ4MRdsF5MKY6ZBw"/>
+<span class="font-ui-chrome text-ui-chrome text-muted-foreground">by Dead Pixel Design</span>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="font-ui-chrome text-ui-chrome text-muted-foreground">CPU</span>
+<span class="font-mono-data text-mono-data text-toxic">4.2%</span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container border border-outline-variant">
+<div class="w-2 h-2 rounded-full bg-toxic shadow-[0_0_8px_oklch(0.88_0.28_142)] animate-pulse"></div>
+<span class="font-ui-chrome text-ui-chrome text-toxic">LIVE</span>
+</div>
+<span class="material-symbols-outlined text-muted-foreground hover:text-toxic cursor-pointer transition-colors" style="font-variation-settings: 'FILL' 1;">sensors</span>
+</div>
+</header>
+<!-- Main Content Area -->
+<div class="flex-1 flex p-6 gap-6 relative">
+<!-- Left Panel: Wasp Meter -->
+<div class="flex-1 bg-surface-container/50 border border-outline-variant rounded-xl relative overflow-hidden flex flex-col">
+<div class="absolute inset-0 bg-grid-pattern bg-grid-pattern opacity-30"></div>
+<div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-toxic to-transparent opacity-50"></div>
+<!-- Analyzer Header -->
+<div class="flex justify-between items-center p-4 border-b border-outline-variant/30 bg-surface-container-high/40 relative z-10">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-toxic" style="font-variation-settings: 'FILL' 1;">search_activity</span>
+<span class="font-ui-chrome text-ui-chrome text-muted-foreground">SPECTRAL ANALYSIS</span>
+</div>
+<span class="font-ui-chrome text-ui-chrome text-toxic">WASP METER</span>
+</div>
+<!-- Analyzer Display -->
+<div class="flex-1 relative p-4 flex items-end gap-1 z-10">
+<!-- Simulated Spectral Bars -->
+<div class="w-full h-full flex items-end justify-between gap-[2px]">
+<!-- Generating multiple bars for the spectrum visual -->
+<div class="w-full bg-surface-container-highest rounded-t-sm" style="height: 10%"></div>
+<div class="w-full bg-surface-container-highest rounded-t-sm" style="height: 15%"></div>
+<div class="w-full bg-surface-container-highest rounded-t-sm" style="height: 25%"></div>
+<div class="w-full bg-surface-container-highest rounded-t-sm" style="height: 40%"></div>
+<div class="w-full bg-surface-container-highest rounded-t-sm" style="height: 35%"></div>
+<div class="w-full bg-toxic/40 rounded-t-sm shadow-[0_0_10px_oklch(0.88_0.28_142)]" style="height: 60%"></div>
+<div class="w-full bg-toxic/60 rounded-t-sm shadow-[0_0_10px_oklch(0.88_0.28_142)]" style="height: 85%"></div>
+<div class="w-full bg-toxic rounded-t-sm shadow-[0_0_15px_oklch(0.88_0.28_142)] relative" style="height: 95%">
+<div class="absolute top-0 left-0 w-full h-1 bg-white"></div>
+</div>
+<div class="w-full bg-toxic/70 rounded-t-sm shadow-[0_0_10px_oklch(0.88_0.28_142)]" style="height: 75%"></div>
+<div class="w-full bg-surface-container-highest rounded-t-sm" style="height: 50%"></div>
+<div class="w-full bg-surface-container-highest rounded-t-sm" style="height: 30%"></div>
+<div class="w-full bg-surface-container-highest rounded-t-sm" style="height: 20%"></div>
+<div class="w-full bg-surface-container-highest rounded-t-sm" style="height: 10%"></div>
+<div class="w-full bg-surface-container-highest rounded-t-sm" style="height: 5%"></div>
+</div>
+<!-- Wasp Peak Line Overlay -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none" preserveaspectratio="none" viewbox="0 0 100 100">
+<path class="drop-shadow-[0_0_4px_oklch(0.88_0.28_142)]" d="M0,90 Q10,90 20,80 T40,60 T60,15 T80,50 T100,85" fill="none" stroke="oklch(0.88 0.28 142)" stroke-width="0.5"></path>
+</svg>
+</div>
+<!-- Frequency Labels -->
+<div class="flex justify-between px-4 pb-4 pt-2 border-t border-outline-variant/30 bg-surface-container-high/20 relative z-10">
+<span class="font-ui-chrome text-[10px] text-muted-foreground">1k</span>
+<span class="font-ui-chrome text-[10px] text-muted-foreground">2k</span>
+<span class="font-ui-chrome text-[10px] text-muted-foreground">5k</span>
+<span class="font-ui-chrome text-[10px] text-muted-foreground">8k</span>
+<span class="font-ui-chrome text-[10px] text-muted-foreground">12k</span>
+<span class="font-ui-chrome text-[10px] text-muted-foreground">20k</span>
+</div>
+</div>
+<!-- Right Panel: Hero Readouts -->
+<div class="w-80 flex flex-col gap-6">
+<!-- FIZZ % Card -->
+<div class="bg-surface-elevated border border-outline-variant rounded-xl p-6 relative overflow-hidden flex flex-col justify-center items-center h-48 shadow-lg">
+<div class="absolute inset-0 bg-toxic/5 blur-2xl"></div>
+<div class="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-toxic to-transparent"></div>
+<span class="font-ui-chrome text-ui-chrome text-muted-foreground mb-2 relative z-10">FIZZ AMOUNT</span>
+<div class="font-hero-num text-hero-num text-toxic text-glow tracking-tighter relative z-10">66.1<span class="text-3xl">%</span></div>
+</div>
+<!-- AMP PROFILE Grid -->
+<div class="bg-surface-container border border-outline-variant rounded-xl p-5 flex-1 shadow-lg">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-muted-foreground text-sm">developer_board</span>
+<span class="font-ui-chrome text-ui-chrome text-muted-foreground">AMP PROFILE</span>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<button class="bg-toxic text-on-primary-container font-mono-data text-mono-data py-3 rounded-lg border border-toxic shadow-[0_0_15px_oklch(0.88_0.28_142_/_0.3)] transition-all font-bold">5150</button>
+<button class="bg-surface-container-high text-muted-foreground font-mono-data text-mono-data py-3 rounded-lg border border-outline-variant hover:border-toxic hover:text-toxic transition-all">RECTO</button>
+<button class="bg-surface-container-high text-muted-foreground font-mono-data text-mono-data py-3 rounded-lg border border-outline-variant hover:border-toxic hover:text-toxic transition-all">HM-2</button>
+<button class="bg-surface-container-high text-muted-foreground font-mono-data text-mono-data py-3 rounded-lg border border-outline-variant hover:border-toxic hover:text-toxic transition-all">DJENT</button>
+<button class="bg-surface-container-high text-muted-foreground font-mono-data text-mono-data py-3 rounded-lg border border-outline-variant hover:border-toxic hover:text-toxic transition-all">BLACKENED</button>
+<button class="bg-surface-container-high text-muted-foreground font-mono-data text-mono-data py-3 rounded-lg border border-outline-variant hover:border-toxic hover:text-toxic transition-all">SLUDGE</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Control Section -->
+<div class="h-48 border-t border-outline-variant bg-surface-container/60 backdrop-blur-md px-8 py-6 flex-shrink-0 flex justify-between items-center relative">
+<div class="absolute inset-0 bg-scanline bg-scanline opacity-10 pointer-events-none"></div>
+<!-- Knobs Container -->
+<div class="flex justify-between w-full max-w-4xl mx-auto z-10">
+<!-- Knob 1 -->
+<div class="flex flex-col items-center gap-4">
+<span class="font-ui-chrome text-ui-chrome text-muted-foreground">FIZZ HUNT</span>
+<div class="relative w-16 h-16 rounded-full bg-surface-bright border-2 border-outline-variant shadow-inner flex items-center justify-center">
+<div class="absolute inset-0 rounded-full border border-toxic/50 shadow-[0_0_10px_oklch(0.88_0.28_142_/_0.2)]" style="clip-path: polygon(0 0, 100% 0, 100% 100%, 0 50%);"></div>
+<div class="w-12 h-12 bg-surface-container-highest rounded-full shadow-lg border border-surface-bright flex items-center justify-center transform rotate-45">
+<div class="w-1 h-3 bg-toxic rounded-full shadow-[0_0_5px_oklch(0.88_0.28_142)] absolute top-1"></div>
+</div>
+</div>
+<span class="font-mono-data text-mono-data text-toxic">62</span>
+</div>
+<!-- Knob 2 -->
+<div class="flex flex-col items-center gap-4">
+<span class="font-ui-chrome text-ui-chrome text-muted-foreground">EDGE PRESERVE</span>
+<div class="relative w-16 h-16 rounded-full bg-surface-bright border-2 border-outline-variant shadow-inner flex items-center justify-center">
+<div class="w-12 h-12 bg-surface-container-highest rounded-full shadow-lg border border-surface-bright flex items-center justify-center transform -rotate-12">
+<div class="w-1 h-3 bg-muted-foreground rounded-full absolute top-1"></div>
+</div>
+</div>
+<span class="font-mono-data text-mono-data text-muted-foreground">45</span>
+</div>
+<!-- Knob 3 -->
+<div class="flex flex-col items-center gap-4">
+<span class="font-ui-chrome text-ui-chrome text-muted-foreground">CAB SMOOTH</span>
+<div class="relative w-16 h-16 rounded-full bg-surface-bright border-2 border-outline-variant shadow-inner flex items-center justify-center">
+<div class="w-12 h-12 bg-surface-container-highest rounded-full shadow-lg border border-surface-bright flex items-center justify-center transform rotate-[-45deg]">
+<div class="w-1 h-3 bg-muted-foreground rounded-full absolute top-1"></div>
+</div>
+</div>
+<span class="font-mono-data text-mono-data text-muted-foreground">35</span>
+</div>
+<!-- Knob 4 -->
+<div class="flex flex-col items-center gap-4">
+<span class="font-ui-chrome text-ui-chrome text-muted-foreground">DIGITAL SAND</span>
+<div class="relative w-16 h-16 rounded-full bg-surface-bright border-2 border-outline-variant shadow-inner flex items-center justify-center">
+<div class="absolute inset-0 rounded-full border border-toxic/50 shadow-[0_0_10px_oklch(0.88_0.28_142_/_0.2)]" style="clip-path: polygon(0 0, 100% 0, 100% 50%, 0 50%);"></div>
+<div class="w-12 h-12 bg-surface-container-highest rounded-full shadow-lg border border-surface-bright flex items-center justify-center transform rotate-12">
+<div class="w-1 h-3 bg-toxic rounded-full shadow-[0_0_5px_oklch(0.88_0.28_142)] absolute top-1"></div>
+</div>
+</div>
+<span class="font-mono-data text-mono-data text-toxic">55</span>
+</div>
+<!-- Knob 5 -->
+<div class="flex flex-col items-center gap-4">
+<span class="font-ui-chrome text-ui-chrome text-muted-foreground">AIR ROT</span>
+<div class="relative w-16 h-16 rounded-full bg-surface-bright border-2 border-outline-variant shadow-inner flex items-center justify-center">
+<div class="w-12 h-12 bg-surface-container-highest rounded-full shadow-lg border border-surface-bright flex items-center justify-center transform rotate-0">
+<div class="w-1 h-3 bg-muted-foreground rounded-full absolute top-1"></div>
+</div>
+</div>
+<span class="font-mono-data text-mono-data text-muted-foreground">40</span>
+</div>
+</div>
+</div>
+<!-- Footer / Utility -->
+<footer class="h-12 bg-surface-container-lowest border-t border-outline-variant bg-background/95 backdrop-blur-md flex justify-between items-center px-edge-margin z-50 flex-shrink-0">
+<!-- Left: Crypt Dropdown & IN/OUT Meters -->
+<div class="flex items-center gap-6">
+<button class="flex items-center gap-2 hover:text-toxic-glow cursor-pointer text-muted-foreground transition-colors group">
+<span class="material-symbols-outlined text-sm group-hover:text-toxic transition-colors" style="font-variation-settings: 'FILL' 0;">skull</span>
+<span class="font-ui-chrome text-ui-chrome">THE CRYPT</span>
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<div class="h-4 w-px bg-outline-variant"></div>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="font-ui-chrome text-[10px] text-muted-foreground">IN</span>
+<div class="w-16 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-toxic w-[70%] rounded-full"></div>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-ui-chrome text-[10px] text-muted-foreground">OUT</span>
+<div class="w-16 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-toxic w-[85%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Center: A/B Compare -->
+<div class="flex items-center gap-1 bg-surface-container border border-outline-variant rounded-md p-1">
+<button class="px-3 py-1 bg-toxic text-on-primary-container font-mono-data text-xs rounded shadow-sm font-bold">A</button>
+<button class="px-3 py-1 text-muted-foreground hover:text-on-surface font-mono-data text-xs rounded transition-colors">B</button>
+</div>
+<!-- Right: Oversample & Copyright -->
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-2">
+<span class="font-ui-chrome text-[10px] text-muted-foreground">OS:</span>
+<select class="bg-transparent border-none text-toxic font-mono-data text-xs focus:ring-0 cursor-pointer appearance-none p-0">
+<option class="bg-surface-container text-toxic">4x</option>
+<option class="bg-surface-container text-muted-foreground">1x</option>
+<option class="bg-surface-container text-muted-foreground">2x</option>
+<option class="bg-surface-container text-muted-foreground">8x</option>
+</select>
+</div>
+<div class="h-4 w-px bg-outline-variant"></div>
+<span class="font-ui-chrome text-ui-chrome text-toxic">CAB ROT v1.024 // SCANNING FOR HARSHNESS</span>
+</div>
+</footer>
+</main>
+</body></html>

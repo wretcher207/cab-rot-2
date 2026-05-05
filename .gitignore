@@ -1,0 +1,50 @@
+# Build artifacts
+build/
+build-*/
+out/
+cmake-build-*/
+
+# JUCE/IDE generated
+*.vst3
+*.aaxplugin
+*.component
+*.dll
+*.exp
+*.lib
+*.pdb
+*.exe
+*.obj
+*.ipdb
+*.iobj
+
+# Visual Studio / Rider / VSCode
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.sdf
+*.opensdf
+
+# JUCE Projucer outputs (we use CMake; keep clean)
+Builds/
+JuceLibraryCode/
+
+# OS clutter
+Thumbs.db
+.DS_Store
+ehthumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Phase visual-diff output (generated, not source)
+design/screenshots/
+
+# Local notes / scratch
+*.local.md
+NOTES.local.md
+scratch/
