@@ -1,0 +1,27 @@
+# Normalize all text files to LF on commit; check out as-is on Windows.
+* text=auto eol=lf
+
+# Source files: always LF in repo
+*.cpp text eol=lf
+*.h   text eol=lf
+*.hpp text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+*.py  text eol=lf
+*.md  text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
+
+# PowerShell stays CRLF (some Windows tooling expects it)
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binaries
+*.png binary
+*.jpg binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.wav binary
+*.vst3 binary
