@@ -32,7 +32,11 @@ int run()
         std::cerr << "FAIL: stereo bus layout not supported\n";
         return 1;
     }
-    processor.setBusesLayout (layout);
+    if (! processor.setBusesLayout (layout))
+    {
+        std::cerr << "FAIL: setBusesLayout(stereo) was rejected\n";
+        return 1;
+    }
 
     processor.setRateAndBufferSizeDetails (kSampleRate, kBlockSize);
     processor.prepareToPlay (kSampleRate, kBlockSize);
