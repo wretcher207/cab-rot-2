@@ -36,12 +36,19 @@
   By default the JUCE Standalone window chrome (OS title bar + the yellow
   "Audio input is muted" warning row) is cropped out so the saved PNG shows
   only the editor area, which is what a host like Reaper renders. Pass this
-  switch to keep the full window in the image.
+  switch to keep the full window in the image. The ThemeTest target has no
+  warning row, so cropping is harmless either way.
+
+.PARAMETER ThemeTest
+  Target the Phase 1 CabRot_ThemeTest GUI app instead of the Standalone
+  plugin. Used to capture a reference frame for diffing against the Stitch
+  HTML reference.
 
 .EXAMPLE
   .\tools\visual-diff.ps1
   .\tools\visual-diff.ps1 -Configuration Debug -OutPath design\screenshots\debug.png
-  .\tools\visual-diff.ps1 -ReferencePath design\screenshots\phase-0-baseline.png
+  .\tools\visual-diff.ps1 -ThemeTest -OutPath design\screenshots\theme-test.png
+  .\tools\visual-diff.ps1 -ReferencePath design\screenshots\stitch-rendered.png
 #>
 
 param(
@@ -51,7 +58,8 @@ param(
   [string] $OutPath,
   [string] $ReferencePath,
   [int]    $WaitSeconds = 10,
-  [switch] $NoCrop
+  [switch] $NoCrop,
+  [switch] $ThemeTest
 )
 
 $ErrorActionPreference = 'Stop'
@@ -61,7 +69,13 @@ $ErrorActionPreference = 'Stop'
 # ---------------------------------------------------------------------------
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $buildDir = Join-Path $repoRoot 'build'
-$exePath  = Join-Path $buildDir "CabRot_artefacts/$Configuration/Standalone/Cab Rot.exe"
+if ($ThemeTest) {
+    $exePath    = Join-Path $buildDir "CabRot_ThemeTest_artefacts/$Configuration/Cab Rot Theme Test.exe"
+    $buildTarget = 'CabRot_ThemeTest'
+} else {
+    $exePath    = Join-Path $buildDir "CabRot_artefacts/$Configuration/Standalone/Cab Rot.exe"
+    $buildTarget = 'CabRot_Standalone'
+}
 $screenshotsDir = Join-Path $repoRoot 'design/screenshots'
 
 if (-not (Test-Path $screenshotsDir)) {
@@ -89,8 +103,8 @@ if (-not $SkipBuild) {
         if ($LASTEXITCODE -ne 0) { throw "cmake configure failed ($LASTEXITCODE)" }
     }
 
-    Write-Host ">> cmake --build ($Configuration)"
-    & $cmake.Source --build $buildDir --config $Configuration --target CabRot_Standalone -- /m /nologo /verbosity:minimal
+    Write-Host ">> cmake --build ($Configuration $buildTarget)"
+    & $cmake.Source --build $buildDir --config $Configuration --target $buildTarget -- /m /nologo /verbosity:minimal
     if ($LASTEXITCODE -ne 0) { throw "cmake build failed ($LASTEXITCODE)" }
 }
 
@@ -147,12 +161,12 @@ try {
     if (-not $ok) { $bmp.Dispose(); throw "PrintWindow returned false." }
 
     if (-not $NoCrop) {
-        # The JUCE Standalone wraps our editor in a window that has:
-        #   - OS title bar (varies with DPI / theme)
-        #   - "Audio input is muted to avoid feedback loop" warning row (~32px)
-        #   - then the editor itself, which is what Reaper actually shows.
-        # We crop to the BOTTOM portion of the captured image such that the
-        # final aspect ratio matches the editor's locked 1200x780 (1.538:1).
+        # Plugin Standalone wraps our editor in a window with: OS title bar,
+        # "Audio input is muted" warning row, then editor. Crop to bottom
+        # 780/1200 aspect so the saved PNG matches what Reaper renders.
+        # ThemeTest target has only the OS title bar; same crop math works
+        # because we still want a 1200x780-shaped output. Empty rows above
+        # the editor get trimmed.
         $editorRatio  = 1200.0 / 780.0
         $editorHeight = [int][math]::Round($w / $editorRatio)
         if ($editorHeight -lt $h) {
@@ -178,13 +192,21 @@ finally {
 # ---------------------------------------------------------------------------
 if ($ReferencePath) {
     if (-not (Test-Path $ReferencePath)) { throw "Reference not found: $ReferencePath" }
+
+    # Prefer ImageMagick if available; fall back to Python+Pillow which is
+    # always present in our dev environment.
     $magick = Get-Command magick -ErrorAction SilentlyContinue
-    if (-not $magick) {
-        Write-Host "ImageMagick not on PATH; skipping diff. Install via 'winget install ImageMagick.ImageMagick'."
-    } else {
+    if ($magick) {
         $diffPath = [IO.Path]::ChangeExtension($OutPath, '.diff.png')
         $stats = & $magick.Source compare -metric AE -fuzz 1% $OutPath $ReferencePath $diffPath 2>&1
         Write-Host "AE pixel difference: $stats"
         Write-Host "Diff image: $diffPath"
+    } else {
+        $compareScript = Join-Path $PSScriptRoot 'compare-pngs.py'
+        if (-not (Test-Path $compareScript)) {
+            throw "Diff backend missing: $compareScript and ImageMagick neither installed."
+        }
+        Write-Host ">> compare-pngs.py $ReferencePath vs $OutPath"
+        & python $compareScript $ReferencePath $OutPath --fuzz 1 --threshold 5
     }
 }

@@ -99,13 +99,21 @@ set_target_properties(CabRotBinaryData PROPERTIES
     POSITION_INDEPENDENT_CODE TRUE
     FOLDER                    "Generated")
 
-target_sources(CabRot
-    PRIVATE
-        Source/PluginProcessor.cpp
-        Source/PluginProcessor.h
-        Source/PluginEditor.cpp
-        Source/PluginEditor.h
+set(CABROT_SHARED_SOURCES
+    Source/PluginProcessor.cpp
+    Source/PluginProcessor.h
+    Source/PluginEditor.cpp
+    Source/PluginEditor.h
+    Source/Theme/Palette.h
+    Source/Theme/Fonts.h
+    Source/Theme/Fonts.cpp
+    Source/Theme/SpectreLookAndFeel.h
+    Source/Theme/SpectreLookAndFeel.cpp
 )
+
+target_sources(CabRot PRIVATE ${CABROT_SHARED_SOURCES})
+
+target_include_directories(CabRot PRIVATE Source)
 
 target_compile_definitions(CabRot
     PUBLIC
@@ -141,11 +149,7 @@ endif()
 # Group source files in IDEs.
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/Source"
              PREFIX "Source"
-             FILES
-                 Source/PluginProcessor.cpp
-                 Source/PluginProcessor.h
-                 Source/PluginEditor.cpp
-                 Source/PluginEditor.h)
+             FILES ${CABROT_SHARED_SOURCES})
 
 # ----------------------------------------------------------------------------
 # Tests
@@ -163,8 +167,9 @@ if(CABROT_BUILD_TESTS)
     target_sources(CabRot_PassthroughTest
         PRIVATE
             tests/passthrough_test.cpp
-            Source/PluginProcessor.cpp
-            Source/PluginEditor.cpp)
+            ${CABROT_SHARED_SOURCES})
+
+    target_include_directories(CabRot_PassthroughTest PRIVATE Source)
 
     target_compile_definitions(CabRot_PassthroughTest
         PRIVATE
@@ -187,6 +192,53 @@ if(CABROT_BUILD_TESTS)
 
     add_test(NAME passthrough COMMAND CabRot_PassthroughTest)
     set_tests_properties(passthrough PROPERTIES TIMEOUT 30)
+endif()
+
+# ----------------------------------------------------------------------------
+# Phase 1 visual-diff harness: a standalone GUI app that renders ThemeTest.
+# Not a plugin format; not shipped to users. Used by tools/visual-diff.ps1
+# with -ThemeTest to capture the theme reference frame.
+# ----------------------------------------------------------------------------
+option(CABROT_BUILD_THEME_TEST "Build the Phase 1 ThemeTest GUI app target" ON)
+
+if(CABROT_BUILD_THEME_TEST)
+    juce_add_gui_app(CabRot_ThemeTest
+        PRODUCT_NAME    "Cab Rot Theme Test"
+        COMPANY_NAME    "Dead Pixel Harmonix"
+        BUNDLE_ID       "com.deadpixelharmonix.cabrot.themetest"
+        VERSION         ${PROJECT_VERSION})
+
+    target_sources(CabRot_ThemeTest
+        PRIVATE
+            Source/UI/ThemeTestApp.cpp
+            Source/UI/ThemeTest.cpp
+            Source/UI/ThemeTest.h
+            Source/Theme/Palette.h
+            Source/Theme/Fonts.h
+            Source/Theme/Fonts.cpp
+            Source/Theme/SpectreLookAndFeel.h
+            Source/Theme/SpectreLookAndFeel.cpp)
+
+    target_include_directories(CabRot_ThemeTest PRIVATE Source)
+
+    target_compile_definitions(CabRot_ThemeTest
+        PRIVATE
+            JUCE_WEB_BROWSER=0
+            JUCE_USE_CURL=0)
+
+    target_link_libraries(CabRot_ThemeTest
+        PRIVATE
+            juce::juce_gui_basics
+            juce::juce_graphics
+            CabRotBinaryData
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+
+    if(MSVC)
+        target_compile_options(CabRot_ThemeTest PRIVATE /wd4458)
+    endif()
+
+    set_target_properties(CabRot_ThemeTest PROPERTIES FOLDER "Phase1Tools")
 endif()
 
 # ----------------------------------------------------------------------------
