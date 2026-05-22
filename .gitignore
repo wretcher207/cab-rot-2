@@ -48,3 +48,6 @@ design/screenshots/
 *.local.md
 NOTES.local.md
 scratch/
+
+# Claude Code local state (worktrees, skillfish-installed skills) - not project source
+.claude/

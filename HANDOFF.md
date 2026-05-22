@@ -2,7 +2,7 @@
 
 **Last updated**: 2026-05-05 (after Phase 3.5 knob upgrade)
 **Repo**: https://github.com/wretcher207/cab-rot-2 (private)
-**Working dir**: `c:\Users\david\workspace\cab-rot-2`
+**Working dir**: `c:\Users\david\workspace\cab-rot`
 **Current phase**: 3.5 partially done. Phase 4 (DSP MVP) is the next concrete milestone, but a few items in Phase 3 / 3.5 still want closure.
 
 ---
