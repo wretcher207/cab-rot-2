@@ -37,10 +37,9 @@
   #plugin-ui::before {
     content:''; position:absolute; inset:0; border-radius:18px; pointer-events:none; z-index:0;
     background:repeating-linear-gradient(0deg,
-      rgba(255,255,255,0.038) 0, rgba(255,255,255,0.038) 1px,
-      rgba(0,0,0,0.07) 1px, rgba(0,0,0,0.07) 2px,
-      transparent 2px, transparent 3px);
-    opacity:.95;
+      rgba(255,255,255,0.045) 0, rgba(255,255,255,0.045) 1px,
+      rgba(0,0,0,0.085) 1px, rgba(0,0,0,0.085) 2px);
+    opacity:1;
   }
   /* cool top sheen + corner glints */
   #plugin-ui::after {
@@ -48,6 +47,14 @@
     background:
       radial-gradient(130% 70% at 22% -12%, rgba(162,182,202,0.14), transparent 58%),
       linear-gradient(180deg, rgba(255,255,255,0.06), transparent 26%);
+  }
+  /* raised inner frame around the whole face */
+  .frame {
+    position:absolute; inset:8px; border-radius:13px; pointer-events:none; z-index:1;
+    box-shadow:
+      inset 1px 1px 0 rgba(180,195,210,0.10),
+      inset 0 0 0 1px rgba(0,0,0,0.30),
+      inset -1px -1px 0 rgba(0,0,0,0.55);
   }
   /* ---------- HEADER ---------- */
   header {
@@ -130,6 +137,7 @@
 </head>
 <body>
 <div id="plugin-ui">
+  <div class="frame"></div>
   <header>
     <div class="wordmark">SUNDER</div>
     <nav class="util">
@@ -187,9 +195,9 @@
     // defs (per-knob ids to avoid collisions)
     const defs=el('defs',{});
     const rg=el('radialGradient',{id:'kb'+idx,cx:'0.5',cy:'0.5',r:'0.62',fx:'0.34',fy:'0.30'});
-    rg.appendChild(el('stop',{offset:'0%','stop-color':e.active?'#5A4632':'#474D57'}));
-    rg.appendChild(el('stop',{offset:'45%','stop-color':e.active?'#33271B':'#2B3037'}));
-    rg.appendChild(el('stop',{offset:'100%','stop-color':e.active?'#140F0A':'#101216'}));
+    rg.appendChild(el('stop',{offset:'0%','stop-color':e.active?'#6A5236':'#545C68'}));
+    rg.appendChild(el('stop',{offset:'45%','stop-color':e.active?'#3A2C1D':'#2F353D'}));
+    rg.appendChild(el('stop',{offset:'100%','stop-color':e.active?'#16100A':'#0F1115'}));
     defs.appendChild(rg);
     const cap=el('radialGradient',{id:'cap'+idx,cx:'0.5',cy:'0.42',r:'0.6'});
     cap.appendChild(el('stop',{offset:'0%','stop-color':'#24272C'}));
@@ -212,6 +220,8 @@
     svg.appendChild(el('circle',{cx:CX,cy:CY,r:35,fill:'none',stroke:'rgba(0,0,0,0.55)','stroke-width':'1'}));
     // knob body
     svg.appendChild(el('circle',{cx:CX,cy:CY,r:30,fill:'url(#kb'+idx+')',stroke:'#0A0B0D','stroke-width':'1'}));
+    // concentric machined turning marks on the outer flat
+    for(let r=20;r<=28;r+=2.4){ svg.appendChild(el('circle',{cx:CX,cy:CY,r:r,fill:'none',stroke:'rgba(255,255,255,0.035)','stroke-width':'0.5'})); }
     // spherical specular highlight (top-left)
     const spg=el('radialGradient',{id:'sp'+idx,cx:'0.5',cy:'0.5',r:'0.5'});
     spg.appendChild(el('stop',{offset:'0%','stop-color':'rgba(255,255,255,0.5)'}));
@@ -299,8 +309,8 @@
       for(let i=0;i<pts.length-1;i++){const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;
         const c1x=p1[0]+(p2[0]-p0[0])/6,c1y=p1[1]+(p2[1]-p0[1])/6,c2x=p2[0]-(p3[0]-p1[0])/6,c2y=p2[1]-(p3[1]-p1[1])/6;
         ctx.bezierCurveTo(c1x,c1y,c2x,c2y,p2[0],p2[1]);}
-      ctx.strokeStyle='rgba('+(200+s*8)+','+(120+s*10)+',60,'+(0.10+0.04*s)+')';
-      ctx.lineWidth=1.4+s*0.5; ctx.shadowColor='rgba(229,152,70,0.55)'; ctx.shadowBlur=12; ctx.stroke();
+      ctx.strokeStyle='rgba('+(205+s*8)+','+(130+s*10)+',66,'+(0.14+0.05*s)+')';
+      ctx.lineWidth=1.4+s*0.5; ctx.shadowColor='rgba(229,152,70,0.6)'; ctx.shadowBlur=14; ctx.stroke();
     }
     ctx.restore();
 
