@@ -224,7 +224,7 @@
     for(let r=20;r<=28;r+=2.4){ svg.appendChild(el('circle',{cx:CX,cy:CY,r:r,fill:'none',stroke:'rgba(255,255,255,0.035)','stroke-width':'0.5'})); }
     // spherical specular highlight (top-left)
     const spg=el('radialGradient',{id:'sp'+idx,cx:'0.5',cy:'0.5',r:'0.5'});
-    spg.appendChild(el('stop',{offset:'0%','stop-color':'rgba(255,255,255,0.5)'}));
+    spg.appendChild(el('stop',{offset:'0%','stop-color':'rgba(255,255,255,0.62)'}));
     spg.appendChild(el('stop',{offset:'100%','stop-color':'rgba(255,255,255,0)'}));
     defs.appendChild(spg);
     svg.appendChild(el('ellipse',{cx:CX-7,cy:CY-10,rx:14,ry:9,fill:'url(#sp'+idx+')'}));
@@ -291,6 +291,13 @@
     curve(veil.map(p=>[p[0],p[1]])); ctx.lineTo(W,top); ctx.lineTo(0,top); ctx.closePath();
     ctx.fillStyle=grad; ctx.fill();
     ctx.restore();
+
+    // soft copper bloom = volumetric "cloud" behind the strands
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const bx=fx(4500), by=top+span*0.24, br=Math.min(W*0.34,300);
+    const bloom=ctx.createRadialGradient(bx,by,12,bx,by,br);
+    bloom.addColorStop(0,'rgba(158,100,48,0.5)'); bloom.addColorStop(0.45,'rgba(120,76,36,0.2)'); bloom.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=bloom; ctx.fillRect(0,0,W,H); ctx.restore();
 
     // smoky copper strands (additive, gated to the target band)
     ctx.save(); ctx.globalCompositeOperation='lighter';
