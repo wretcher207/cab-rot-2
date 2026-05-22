@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SUNDER — v3</title>
+<style>
+  :root {
+    --screen:#0B0C0E; --gridline:#1B1D22;
+    --text-2:#8E8E93; --text-1:#F5F5F7;
+    --accent:#D4A359; --copper-deep:#3E2715; --copper-bright:#E59846; --silver:#E2E8F0;
+    --metal-hi:#32373F; --metal-lo:#141619;
+    --bevel-light:#3A3F48; --bevel-dark:#050608;
+    --sans:'Inter','SF Pro Display',-apple-system,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono','SF Mono',Consolas,monospace;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body {
+    min-height:100%; display:grid; place-items:center; padding:56px;
+    background:radial-gradient(ellipse at 50% 26%, #17191e 0%, #0a0b0d 52%, #050607 100%);
+  }
+  #plugin-ui {
+    width:960px; height:580px; color:var(--text-1); font-family:var(--sans);
+    position:relative; display:grid; grid-template-rows:54px 332px 194px;
+    border-radius:18px; overflow:hidden;
+    background:linear-gradient(178deg,#30353C 0%,#22262C 46%,#15171B 100%);
+    box-shadow:
+      0 50px 100px -26px rgba(0,0,0,0.9),
+      0 8px 22px -8px rgba(0,0,0,0.65),
+      inset 0 1.5px 0 rgba(255,255,255,0.09),
+      inset 1.5px 0 0 rgba(255,255,255,0.04),
+      inset -1.5px 0 0 rgba(0,0,0,0.5),
+      inset 0 -2.5px 0 rgba(0,0,0,0.6);
+    user-select:none; -webkit-user-select:none;
+  }
+  /* brushed dark-titanium grain */
+  #plugin-ui::before {
+    content:''; position:absolute; inset:0; border-radius:18px; pointer-events:none; z-index:0;
+    background:repeating-linear-gradient(0deg,
+      rgba(255,255,255,0.038) 0, rgba(255,255,255,0.038) 1px,
+      rgba(0,0,0,0.07) 1px, rgba(0,0,0,0.07) 2px,
+      transparent 2px, transparent 3px);
+    opacity:.95;
+  }
+  /* cool top sheen + corner glints */
+  #plugin-ui::after {
+    content:''; position:absolute; inset:0; pointer-events:none; z-index:0; border-radius:18px;
+    background:
+      radial-gradient(130% 70% at 22% -12%, rgba(162,182,202,0.14), transparent 58%),
+      linear-gradient(180deg, rgba(255,255,255,0.06), transparent 26%);
+  }
+  /* ---------- HEADER ---------- */
+  header {
+    position:relative; z-index:2;
+    display:flex; align-items:center; justify-content:space-between; padding:0 28px;
+  }
+  header::after {
+    content:''; position:absolute; left:20px; right:20px; bottom:0; height:2px;
+    background:linear-gradient(90deg, transparent, rgba(58,63,72,0.6) 18%, rgba(58,63,72,0.6) 82%, transparent);
+    border-top:1px solid rgba(0,0,0,0.5);
+  }
+  .wordmark { font-size:16px; font-weight:600; letter-spacing:.24em; color:#C9CED5; text-shadow:0 1px 0 rgba(0,0,0,0.8), 0 0 1px rgba(255,255,255,0.2); }
+  .util { display:flex; align-items:center; gap:22px; }
+  .util button {
+    background:none; border:none; color:var(--text-2); cursor:pointer;
+    font-family:var(--sans); font-size:10px; font-weight:500;
+    letter-spacing:.1em; text-transform:uppercase; transition:color .15s; text-shadow:0 1px 0 rgba(0,0,0,0.7);
+  }
+  .util button:hover { color:var(--text-1); }
+  .util button.on { color:var(--accent); text-shadow:0 0 6px rgba(212,163,89,0.5); }
+  .delta { font-size:13px !important; letter-spacing:0 !important; }
+  /* ---------- RECESSED GLASS SCREEN ---------- */
+  .canvas {
+    position:relative; z-index:1; margin:6px 18px 12px; border-radius:9px; background:var(--screen);
+    box-shadow:
+      inset 0 3px 9px rgba(0,0,0,0.95),
+      inset 1px 1px 0 var(--bevel-light),
+      inset -1px -1px 0 var(--bevel-dark),
+      0 1px 0 rgba(255,255,255,0.04);
+    overflow:hidden;
+  }
+  #screen { width:100%; height:100%; display:block; position:relative; z-index:1; }
+  .glass {
+    position:absolute; inset:0; pointer-events:none; z-index:2; border-radius:9px;
+    background:linear-gradient(128deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.015) 28%, rgba(255,255,255,0) 48%);
+  }
+  /* ---------- DOCK ---------- */
+  .dock { position:relative; z-index:1; display:flex; flex-direction:column; padding:2px 22px 14px; }
+  /* hardware mode toggle bar (recessed) */
+  .modebar {
+    display:flex; align-items:center; justify-content:center; gap:2px; align-self:center;
+    padding:5px 8px; border-radius:8px; margin:0 0 12px;
+    background:linear-gradient(180deg,#0C0D10,#121419);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,0.85), inset 0 -1px 0 rgba(255,255,255,0.04), 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .modebtn {
+    position:relative; background:linear-gradient(180deg,#15171B,#101216); border:1px solid #0A0B0D;
+    border-radius:5px; cursor:pointer; color:var(--text-2);
+    font-family:var(--sans); font-size:9.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+    padding:6px 16px 6px 22px; transition:color .15s, box-shadow .15s;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 1px 1px rgba(0,0,0,0.4);
+  }
+  .modebtn::before {
+    content:''; position:absolute; left:9px; top:50%; transform:translateY(-50%);
+    width:5px; height:5px; border-radius:50%; background:#202327; box-shadow:inset 0 1px 1px rgba(0,0,0,0.6);
+  }
+  .modebtn:hover { color:#C7CCD3; }
+  .modebtn.on {
+    color:#F0E4CE; background:linear-gradient(180deg,#23262C,#191B20);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.08), 0 1px 2px rgba(0,0,0,0.5);
+  }
+  .modebtn.on::before {
+    background:var(--accent);
+    box-shadow:0 0 6px 1px rgba(212,163,89,0.8), 0 0 2px rgba(212,163,89,1);
+  }
+  .encoders { flex:1; display:flex; justify-content:space-between; align-items:flex-start; padding:0 6px; }
+  .enc { width:114px; display:flex; flex-direction:column; align-items:center; gap:9px; cursor:ns-resize; }
+  .knob { position:relative; width:94px; height:94px; }
+  .knob svg { width:94px; height:94px; display:block; overflow:visible; }
+  .knob .val {
+    position:absolute; inset:0; display:grid; place-items:center;
+    font-family:var(--mono); font-size:12px; font-weight:600; color:#FFFFFF;
+    text-shadow:0 0 5px rgba(0,0,0,0.9), 0 1px 0 rgba(0,0,0,0.7); pointer-events:none;
+    padding-bottom:1px;
+  }
+  .enc .lbl { font-size:9.5px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--text-2); text-shadow:0 1px 0 rgba(0,0,0,0.7); }
+  .enc.active .lbl { color:#E7C896; }
+  .enc:hover .lbl { color:var(--text-1); }
+</style>
+</head>
+<body>
+<div id="plugin-ui">
+  <header>
+    <div class="wordmark">SUNDER</div>
+    <nav class="util">
+      <button id="preset">Init &#9662;</button>
+      <button id="delta" class="delta" title="Delta Listen">&Delta;</button>
+      <button id="ab">A/B</button>
+      <button id="os">1&times;</button>
+      <button id="bypass">Bypass</button>
+    </nav>
+  </header>
+
+  <section class="canvas">
+    <canvas id="screen"></canvas>
+    <div class="glass"></div>
+  </section>
+
+  <section class="dock">
+    <div class="modebar" id="modebar"></div>
+    <div class="encoders" id="encoders"></div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const A=getComputedStyle(document.documentElement); const cv=n=>A.getPropertyValue(n).trim();
+  const ACCENT=cv('--accent'), GRID=cv('--gridline'), T2=cv('--text-2');
+  const SVGNS='http://www.w3.org/2000/svg';
+
+  // ===== MODE TOGGLES =====
+  const MODES=['5150','RECTO','HM-2','DJENT','BLACKENED','SLUDGE'];
+  const mb=document.getElementById('modebar');
+  MODES.forEach((m,i)=>{ const b=document.createElement('button'); b.className='modebtn'+(i===0?' on':''); b.textContent=m;
+    b.onclick=()=>{ mb.querySelectorAll('.modebtn').forEach(x=>x.classList.remove('on')); b.classList.add('on'); };
+    mb.appendChild(b); });
+
+  // ===== HEADER TOGGLES =====
+  ['delta','bypass','ab'].forEach(id=>{const el=document.getElementById(id); el.onclick=()=>el.classList.toggle('on');});
+  const os=document.getElementById('os'); const OSV=['1×','2×','4×']; let oi=0;
+  os.onclick=()=>{ oi=(oi+1)%3; os.textContent=OSV[oi]; os.classList.toggle('on',oi>0); };
+
+  // ===== KNURLED METAL KNOBS =====
+  const ENC=[{label:'SUPPRESSION',value:50},{label:'TRANSIENT',value:50},{label:'RESONANCE',value:50,active:true},
+             {label:'GRAIN',value:50},{label:'AIR',value:50},{label:'MIX',value:100}];
+  const A_MIN=-135, A_SWEEP=270, CX=42, CY=42;
+  const polar=(r,deg)=>{const a=deg*Math.PI/180; return [CX+r*Math.sin(a), CY-r*Math.cos(a)];};
+  const arcPath=(r,a0,a1)=>{const[x0,y0]=polar(r,a0),[x1,y1]=polar(r,a1);const large=(a1-a0)>180?1:0;
+    return `M${x0} ${y0} A${r} ${r} 0 ${large} 1 ${x1} ${y1}`;};
+  function el(tag,attrs){const e=document.createElementNS(SVGNS,tag); for(const k in attrs)e.setAttribute(k,attrs[k]); return e;}
+
+  const encWrap=document.getElementById('encoders');
+  ENC.forEach((e,idx)=>{
+    const wrap=document.createElement('div'); wrap.className='enc'+(e.active?' active':'');
+    const knob=document.createElement('div'); knob.className='knob';
+    const svg=el('svg',{viewBox:'0 0 84 84'});
+    // defs (per-knob ids to avoid collisions)
+    const defs=el('defs',{});
+    const rg=el('radialGradient',{id:'kb'+idx,cx:'0.5',cy:'0.5',r:'0.62',fx:'0.34',fy:'0.30'});
+    rg.appendChild(el('stop',{offset:'0%','stop-color':e.active?'#5A4632':'#474D57'}));
+    rg.appendChild(el('stop',{offset:'45%','stop-color':e.active?'#33271B':'#2B3037'}));
+    rg.appendChild(el('stop',{offset:'100%','stop-color':e.active?'#140F0A':'#101216'}));
+    defs.appendChild(rg);
+    const cap=el('radialGradient',{id:'cap'+idx,cx:'0.5',cy:'0.42',r:'0.6'});
+    cap.appendChild(el('stop',{offset:'0%','stop-color':'#24272C'}));
+    cap.appendChild(el('stop',{offset:'100%','stop-color':'#15171A'}));
+    defs.appendChild(cap);
+    const fl=el('filter',{id:'led'+idx,x:'-60%',y:'-60%',width:'220%',height:'220%'});
+    fl.appendChild(el('feGaussianBlur',{stdDeviation:'1.8',result:'b'}));
+    const fm=el('feMerge',{}); fm.appendChild(el('feMergeNode',{in:'b'})); fm.appendChild(el('feMergeNode',{in:'SourceGraphic'})); fl.appendChild(fm);
+    defs.appendChild(fl); svg.appendChild(defs);
+
+    // LED groove + value arc (outermost)
+    svg.appendChild(el('path',{d:arcPath(39,A_MIN,A_MIN+A_SWEEP),stroke:'#08090B','stroke-width':'4',fill:'none','stroke-linecap':'round'}));
+    const led=el('path',{stroke:ACCENT,'stroke-width':'3',fill:'none','stroke-linecap':'round',filter:'url(#led'+idx+')'}); svg.appendChild(led);
+    // knurl ticks
+    svg.appendChild(el('circle',{cx:CX,cy:CY,r:32,fill:'none',stroke:'#0A0C0E','stroke-width':'6'}));
+    const knurl=el('g',{}); const NT=80;
+    for(let k=0;k<NT;k++){ const ang=k/NT*360; const [xi,yi]=polar(29,ang),[xo,yo]=polar(35,ang);
+      knurl.appendChild(el('line',{x1:xi,y1:yi,x2:xo,y2:yo,stroke:(k%2?'#474D57':'#06080A'),'stroke-width':'1.1','stroke-opacity':(k%2?'0.6':'0.95')})); }
+    svg.appendChild(knurl);
+    svg.appendChild(el('circle',{cx:CX,cy:CY,r:35,fill:'none',stroke:'rgba(0,0,0,0.55)','stroke-width':'1'}));
+    // knob body
+    svg.appendChild(el('circle',{cx:CX,cy:CY,r:30,fill:'url(#kb'+idx+')',stroke:'#0A0B0D','stroke-width':'1'}));
+    // spherical specular highlight (top-left)
+    const spg=el('radialGradient',{id:'sp'+idx,cx:'0.5',cy:'0.5',r:'0.5'});
+    spg.appendChild(el('stop',{offset:'0%','stop-color':'rgba(255,255,255,0.5)'}));
+    spg.appendChild(el('stop',{offset:'100%','stop-color':'rgba(255,255,255,0)'}));
+    defs.appendChild(spg);
+    svg.appendChild(el('ellipse',{cx:CX-7,cy:CY-10,rx:14,ry:9,fill:'url(#sp'+idx+')'}));
+    // top rim highlight
+    svg.appendChild(el('path',{d:arcPath(29.5,-78,34),stroke:'rgba(255,255,255,0.22)','stroke-width':'1.3',fill:'none','stroke-linecap':'round'}));
+    // inner cap
+    svg.appendChild(el('circle',{cx:CX,cy:CY,r:17,fill:'url(#cap'+idx+')',stroke:'#0B0D10','stroke-width':'1'}));
+    svg.appendChild(el('circle',{cx:CX,cy:CY,r:17,fill:'none',stroke:'rgba(255,255,255,0.06)','stroke-width':'0.6'}));
+    // pointer notch (rotates with value)
+    const notch=el('line',{stroke:'#E8ECF1','stroke-width':'1.6','stroke-linecap':'round','stroke-opacity':'0.85'}); svg.appendChild(notch);
+
+    knob.appendChild(svg);
+    const val=document.createElement('div'); val.className='val'; knob.appendChild(val);
+    const lbl=document.createElement('div'); lbl.className='lbl'; lbl.textContent=e.label;
+    wrap.appendChild(knob); wrap.appendChild(lbl); encWrap.appendChild(wrap);
+
+    const render=()=>{ const a1=A_MIN+(e.value/100)*A_SWEEP;
+      led.setAttribute('d',arcPath(39,A_MIN,a1));
+      const [nx0,ny0]=polar(19,a1),[nx1,ny1]=polar(28,a1);
+      notch.setAttribute('x1',nx0);notch.setAttribute('y1',ny0);notch.setAttribute('x2',nx1);notch.setAttribute('y2',ny1);
+      val.textContent=Math.round(e.value)+'%'; };
+    render();
+    let dragging=false,ly=0;
+    wrap.addEventListener('pointerdown',ev=>{dragging=true;ly=ev.clientY;wrap.setPointerCapture(ev.pointerId);led.style.filter='drop-shadow(0 0 5px '+ACCENT+')';});
+    wrap.addEventListener('pointermove',ev=>{if(!dragging)return;e.value=Math.max(0,Math.min(100,e.value+(ly-ev.clientY)*0.6));ly=ev.clientY;render();});
+    const end=()=>{dragging=false;led.style.filter='';}; wrap.addEventListener('pointerup',end); wrap.addEventListener('pointercancel',end);
+  });
+
+  // ===== SPECTRAL GLASS SCREEN (canvas: smoke needs additive blending) =====
+  const cvs=document.getElementById('screen'); const ctx=cvs.getContext('2d');
+  let W=0,H=0,dpr=1;
+  const FMIN=200, FMAX=12000;
+  const fx=f=>(Math.log(f)-Math.log(FMIN))/(Math.log(FMAX)-Math.log(FMIN))*W;
+  function resize(){ dpr=window.devicePixelRatio||1; W=cvs.clientWidth; H=cvs.clientHeight;
+    cvs.width=Math.round(W*dpr); cvs.height=Math.round(H*dpr); ctx.setTransform(dpr,0,0,dpr,0,0); }
+  function curve(pts){ ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=0;i<pts.length-1;i++){const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;
+      const c1x=p1[0]+(p2[0]-p0[0])/6,c1y=p1[1]+(p2[1]-p0[1])/6,c2x=p2[0]-(p3[0]-p1[0])/6,c2y=p2[1]-(p3[1]-p1[1])/6;
+      ctx.bezierCurveTo(c1x,c1y,c2x,c2y,p2[0],p2[1]);} }
+  let t=0;
+  function draw(){
+    t+=0.016; const top=10, bot=H-18, span=bot-top;
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#0B0C0E'; ctx.fillRect(0,0,W,H);
+    // gridlines
+    ctx.strokeStyle=GRID; ctx.lineWidth=0.5; ctx.fillStyle=T2; ctx.font='8px '+cv('--sans'); ctx.textBaseline='alphabetic';
+    [0,-12,-24,-36].forEach((db,i)=>{const y=8+(i/3)*(H-26); ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); ctx.fillText(db+' dB',3,y-3);});
+    [200,1000,2000,5000,10000].forEach(f=>{const x=fx(f); ctx.beginPath(); ctx.moveTo(x,8); ctx.lineTo(x,H-16); ctx.stroke();
+      ctx.textAlign=f===200?'left':'center'; ctx.fillText(f>=1000?(f/1000)+'k':''+f, f===200?3:x, H-5);});
+    ctx.textAlign='left';
+
+    // compute curves
+    const N=90, spec=[], veil=[];
+    for(let i=0;i<=N;i++){ const fr=i/N, f=FMIN*Math.pow(FMAX/FMIN,fr), x=fx(f);
+      const ridge=Math.exp(-Math.pow((Math.log(f)-Math.log(4200))/0.42,2));
+      let mag=(0.55-0.30*fr)+0.40*ridge+0.012*Math.sin(t*1.3+fr*9); mag=Math.max(0.04,Math.min(0.96,mag));
+      spec.push([x,bot-mag*span]);
+      const tgt=Math.exp(-Math.pow((Math.log(f)-Math.log(4500))/0.46,2));
+      veil.push([x, top+(0.02+0.46*tgt)*span, tgt]); }
+
+    // base copper glow fill (reduction body)
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const grad=ctx.createLinearGradient(0,top,0,bot*0.62);
+    grad.addColorStop(0,'rgba(78,50,28,1)'); grad.addColorStop(0.5,'rgba(50,32,18,0.5)'); grad.addColorStop(1,'rgba(11,12,14,0)');
+    curve(veil.map(p=>[p[0],p[1]])); ctx.lineTo(W,top); ctx.lineTo(0,top); ctx.closePath();
+    ctx.fillStyle=grad; ctx.fill();
+    ctx.restore();
+
+    // smoky copper strands (additive, gated to the target band)
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const STR=5;
+    for(let s=0;s<STR;s++){
+      const pts=[];
+      for(let i=0;i<=N;i++){ const fr=i/N, f=FMIN*Math.pow(FMAX/FMIN,fr), x=fx(f);
+        const tgt=Math.exp(-Math.pow((Math.log(f)-Math.log(4500))/0.55,2));
+        if(tgt<0.05) continue;
+        const yBase=top+span*(0.10+0.30*(1-tgt));
+        const wob=Math.sin(t*(0.7+s*0.25)+fr*(7+s*2)+s*1.7)*span*0.05*tgt;
+        const lift=(s-STR/2)*span*0.035*tgt;
+        pts.push([x, yBase+wob+lift, tgt]); }
+      if(pts.length<2) continue;
+      ctx.beginPath(); ctx.moveTo(pts[0][0],pts[0][1]);
+      for(let i=0;i<pts.length-1;i++){const p0=pts[i-1]||pts[i],p1=pts[i],p2=pts[i+1],p3=pts[i+2]||p2;
+        const c1x=p1[0]+(p2[0]-p0[0])/6,c1y=p1[1]+(p2[1]-p0[1])/6,c2x=p2[0]-(p3[0]-p1[0])/6,c2y=p2[1]-(p3[1]-p1[1])/6;
+        ctx.bezierCurveTo(c1x,c1y,c2x,c2y,p2[0],p2[1]);}
+      ctx.strokeStyle='rgba('+(200+s*8)+','+(120+s*10)+',60,'+(0.10+0.04*s)+')';
+      ctx.lineWidth=1.4+s*0.5; ctx.shadowColor='rgba(229,152,70,0.55)'; ctx.shadowBlur=12; ctx.stroke();
+    }
+    ctx.restore();
+
+    // glowing reduction edge (silver wings -> copper center)
+    ctx.save();
+    const eg=ctx.createLinearGradient(0,0,W,0);
+    eg.addColorStop(0,'rgba(226,232,240,0.55)'); eg.addColorStop(0.40,'rgba(212,163,89,0.95)');
+    eg.addColorStop(0.5,'rgba(240,192,121,1)'); eg.addColorStop(0.60,'rgba(212,163,89,0.95)');
+    eg.addColorStop(1,'rgba(226,232,240,0.55)');
+    curve(veil.map(p=>[p[0],p[1]])); ctx.strokeStyle=eg; ctx.lineWidth=1.6;
+    ctx.shadowColor='rgba(212,163,89,0.6)'; ctx.shadowBlur=6; ctx.stroke();
+    ctx.restore();
+
+    // input spectrum (bright silver, on top)
+    ctx.save(); curve(spec); ctx.strokeStyle='rgba(222,228,236,0.7)'; ctx.lineWidth=1.5;
+    ctx.shadowColor='rgba(222,228,236,0.4)'; ctx.shadowBlur=3; ctx.lineJoin='round'; ctx.stroke(); ctx.restore();
+
+    requestAnimationFrame(draw);
+  }
+  const ro=new ResizeObserver(()=>resize()); ro.observe(cvs); resize(); requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
