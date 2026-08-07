@@ -155,7 +155,7 @@ machine, 2026-08-07.
 - [x] Edge Preserve 100: pick attack measurably preserved. Attack peaks survive **4.28 dB** louder at Edge Preserve 100 than at 0, same reduction settings. This is the architectural claim, and it holds.
 - [x] No clicks / pops / zipper noise on fast knob sweeps. Worst output slew **1.486x** the input's while throwing Fizz Hunt and Reap Mix end to end every block.
 - [x] No denormals. Silence after a burst decays to **true zero**.
-- [x] CPU < 3%, stereo 48 kHz, oversampling off. See the test output for the current figure on this box.
+- [x] CPU < 3%, stereo 48 kHz, oversampling off. **2.6 to 2.8%** worst case (all four bands wide open, Fizz Hunt at 100 so it is reducing on every sample). Of that, **1.8% is the band split alone** and is a fixed floor paid whatever the knobs say; the reduction itself is about 0.9%. Typical settings sit near the floor.
 - [x] 44.1 / 48 / 88.2 / 96 / 176.4 / 192 kHz. All sane. Block sizes 1 / 7 / 64 / 512 / 2048 too, including blocks larger than the prepared size, which get sliced.
 
 Still open from the gate, and only David can close them: does the fizz
@@ -255,6 +255,9 @@ These are documented because they bit at least once during the build:
 - **`Font::getStringWidth` is deprecated** in JUCE 8. Use `juce::GlyphArrangement::getBoundingBox`.
 - **A/B `ButtonAttachment` desync**: a plain `ButtonAttachment` on B alone leaves both A and B dark when the host writes `aOrB=false`, because JUCE's radio group only deselects on button-on. Workaround in `PluginEditor.cpp`: a single `ParameterAttachment` drives both buttons in lockstep.
 - **`PrintWindow` flag 2** is required on JUCE 8 (Direct2D). Flag 0 returns black. `tools/visual-diff.ps1` already uses flag 2.
+- **Benchmarking a plugin over one long buffer measures the wrong thing.** The first CPU test here streamed 30 seconds of audio (11.5 MB) in a single pass and read 3 to 7% with wild run-to-run variance. That is memory bandwidth, not the plugin: a real host hands over 512 samples at a time out of warm cache. Timing the best of nine passes over a 2-second cache-resident buffer gives 2.6% and repeats to within 0.05%. Same code, same flags. If a CPU figure here ever looks alarming, check the harness before optimising anything.
+- **The test targets did not link LTO** while the plugin target did, so the benchmark was measuring a slower binary than the one that ships. `juce::juce_recommended_lto_flags` is on all three test targets now. Keep it that way when adding a target.
+- **`juce::dsp::LinkwitzRileyFilter::processSample` with two outputs ignores `setType`.** It computes both low and high from the same state regardless. Harmless, but do not read a `setType (lowpass)` call next to it as meaningful.
 - **JUCE Standalone audio-settings dialog** can briefly grab `MainWindowHandle` and trip the snapshot tool's "Window too small" guard. The snapshot tool retries once after a 2 s sleep.
 - **Visual diff vs Stitch**: current 67–70% per-pixel difference is honest, not a regression. The canonical decisions in `design/CANONICAL-UI.md` §8 (Reap Mix, ghost icon, named zones, footer chrome) intentionally diverge from the Stitch export. The 5% / 8% targets in PLAN.md gates 1 and 2 are documented as canonical-divergence-aware.
 
