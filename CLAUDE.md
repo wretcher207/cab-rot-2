@@ -25,17 +25,21 @@ See HANDOFF.md for current phase, what's shipped, and what's next. Don't duplica
 - `CMakeLists.txt` — build config
 - `Source/Theme/Palette.h` — 55-token color system
 - `Source/DSP/` — BandSplitter, TransientDetector, DynamicReducer, ReapMixer, InputTrim
+- `Source/DSP/Tuning.h` — **every constant that decides how it sounds.** Re-voice here, nowhere else.
 - `tools/oklch-to-srgb.py` — color conversion utility
-- `tests/passthrough_test.cpp` — null test harness
+- `tests/passthrough_test.cpp` — transparency gate
+- `tests/dsp_test.cpp` — Phase 4 DSP gate
 
 ## Build
-Double-click `build.ps1` — builds and auto-validates.
-VST3 installs to: `C:\Users\david\AppData\Local\Programs\Common\VST3\`
+There is no `build.ps1` in this repo; earlier notes here were wrong about that. Use the CMake commands in HANDOFF.md.
+Toolchain on this machine is **VS 2022 Build Tools** (generator `Visual Studio 17 2022`). The VS 18 / 2026 install present here has no CMake component, so the old Mac-era command path fails.
+VST3 installs to: `C:\Users\wretc\AppData\Local\Programs\Common\VST3\`
 Baseline: 0 warnings, 0 errors.
 
 ## Sibling project
-`../throatwire/` — sibling DPH plugin. Shares JUCE CMake patterns. Different aesthetic (Anodized Industrial, NOT toxic green).
+`wretcher207/dead-pixel-harmonix` (private, remote only) is MSV-1, the first DPH plugin: Projucer-based, four DSP modules, brass/CRT UI. Cab Rot is DPH product #2.
+Earlier notes here pointed at `../throatwire/` as a sibling. **No such repo exists**, locally or on GitHub. "Throat-Wire" was a visual mockup that influenced the Phase 3.5 knob work, nothing more.
 
 ## Writing
 Any marketing copy, product descriptions, or tagline work: read David's voice profile before writing anything.
-`C:\Users\david\workspace\david-voice-profile.md`
+`C:\Users\wretc\.claude\voice\david-voice-profile.md`

@@ -137,6 +137,20 @@ set(CABROT_UI_REGIONS
     Source/UI/WaspMeter.cpp
 )
 
+set(CABROT_DSP_SOURCES
+    Source/DSP/Tuning.h
+    Source/DSP/InputTrim.h
+    Source/DSP/InputTrim.cpp
+    Source/DSP/BandSplitter.h
+    Source/DSP/BandSplitter.cpp
+    Source/DSP/TransientDetector.h
+    Source/DSP/TransientDetector.cpp
+    Source/DSP/DynamicReducer.h
+    Source/DSP/DynamicReducer.cpp
+    Source/DSP/ReapMixer.h
+    Source/DSP/ReapMixer.cpp
+)
+
 set(CABROT_SHARED_SOURCES
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
@@ -145,6 +159,7 @@ set(CABROT_SHARED_SOURCES
     ${CABROT_THEME_SOURCES}
     ${CABROT_UI_ATOMS}
     ${CABROT_UI_REGIONS}
+    ${CABROT_DSP_SOURCES}
 )
 
 target_sources(CabRot PRIVATE ${CABROT_SHARED_SOURCES})
@@ -162,6 +177,7 @@ target_compile_definitions(CabRot
 target_link_libraries(CabRot
     PRIVATE
         juce::juce_audio_utils
+        juce::juce_dsp
         CabRotBinaryData
     PUBLIC
         juce::juce_recommended_config_flags
@@ -216,8 +232,10 @@ if(CABROT_BUILD_TESTS)
     target_link_libraries(CabRot_PassthroughTest
         PRIVATE
             juce::juce_audio_utils
+            juce::juce_dsp
             CabRotBinaryData
             juce::juce_recommended_config_flags
+            juce::juce_recommended_lto_flags
             juce::juce_recommended_warning_flags)
 
     if(MSVC)
@@ -228,6 +246,44 @@ if(CABROT_BUILD_TESTS)
 
     add_test(NAME passthrough COMMAND CabRot_PassthroughTest)
     set_tests_properties(passthrough PROPERTIES TIMEOUT 30)
+
+    # Phase 4 gate. Measures the band split, the transient protection, and
+    # the sample-rate matrix rather than eyeballing them in a DAW.
+    juce_add_console_app(CabRot_DspTest
+        PRODUCT_NAME    "CabRot DSP Test"
+        COMPANY_NAME    "Dead Pixel Harmonix"
+        BUNDLE_ID       "com.deadpixelharmonix.cabrot.dsptest")
+
+    target_sources(CabRot_DspTest
+        PRIVATE
+            tests/dsp_test.cpp
+            ${CABROT_SHARED_SOURCES})
+
+    target_include_directories(CabRot_DspTest PRIVATE Source)
+
+    target_compile_definitions(CabRot_DspTest
+        PRIVATE
+            JUCE_WEB_BROWSER=0
+            JUCE_USE_CURL=0
+            JUCE_STANDALONE_APPLICATION=1)
+
+    target_link_libraries(CabRot_DspTest
+        PRIVATE
+            juce::juce_audio_utils
+            juce::juce_dsp
+            CabRotBinaryData
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_lto_flags
+            juce::juce_recommended_warning_flags)
+
+    if(MSVC)
+        target_compile_options(CabRot_DspTest PRIVATE /wd4458)
+    endif()
+
+    set_target_properties(CabRot_DspTest PROPERTIES FOLDER tests)
+
+    add_test(NAME dsp COMMAND CabRot_DspTest)
+    set_tests_properties(dsp PROPERTIES TIMEOUT 180)
 endif()
 
 # ----------------------------------------------------------------------------
@@ -268,6 +324,7 @@ if(CABROT_BUILD_THEME_TEST)
             juce::juce_graphics
             CabRotBinaryData
             juce::juce_recommended_config_flags
+            juce::juce_recommended_lto_flags
             juce::juce_recommended_warning_flags)
 
     if(MSVC)

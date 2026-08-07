@@ -1,6 +1,17 @@
 #pragma once
 
+#include "DSP/BandSplitter.h"
+#include "DSP/DynamicReducer.h"
+#include "DSP/InputTrim.h"
+#include "DSP/ReapMixer.h"
+#include "DSP/TransientDetector.h"
+#include "DSP/Tuning.h"
+
 #include <juce_audio_processors/juce_audio_processors.h>
+
+#include <array>
+#include <atomic>
+#include <vector>
 
 namespace cabrot
 {
@@ -66,13 +77,61 @@ public:
     juce::AudioProcessorValueTreeState& getApvts() noexcept { return apvts; }
     juce::UndoManager&                  getUndoManager() noexcept { return undoManager; }
 
+    /** Peak reduction on one of the four processed bands, in dB. Phase 6
+        reads this for the Wasp Meter; nothing draws it yet. */
+    float getBandReductionDb (int processedBand) const noexcept;
+
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout buildParameterLayout();
+
+    void updateDspParameters() noexcept;
+    void processChunk (juce::AudioBuffer<float>& block, int numChannels, int numSamples) noexcept;
 
     juce::UndoManager undoManager;
     juce::AudioProcessorValueTreeState apvts { *this, &undoManager,
                                                juce::Identifier ("CABROT"),
                                                buildParameterLayout() };
+
+    // ------------------------------------------------------------------
+    // Phase 4 DSP
+    // ------------------------------------------------------------------
+    static constexpr int numProcessedBands = dsp::tuning::kNumProcessedBands;
+
+    dsp::InputTrim    inputStage, outputStage;
+    dsp::BandSplitter splitter;
+    dsp::ReapMixer    mixer;
+
+    std::array<dsp::TransientDetector, numProcessedBands> detectors;
+    std::array<dsp::DynamicReducer,    numProcessedBands> reducers;
+
+    std::array<juce::AudioBuffer<float>, dsp::BandSplitter::numBands> bandBuffers;
+    juce::AudioBuffer<float> deltaBuffer;
+    std::vector<float>       gateScratch;
+
+    std::array<std::atomic<float>, numProcessedBands> bandReductionDb { { {}, {}, {}, {} } };
+
+    // Resolved once in the constructor. Reading these per block avoids a
+    // string lookup on the audio thread.
+    struct ParamPointers
+    {
+        std::atomic<float>* fizzHunt      {};
+        std::atomic<float>* edgePreserve  {};
+        std::atomic<float>* cabSmooth     {};
+        std::atomic<float>* digitalSand   {};
+        std::atomic<float>* airRot        {};
+        std::atomic<float>* reapMix       {};
+        std::atomic<float>* inputGain     {};
+        std::atomic<float>* outputGain    {};
+        std::atomic<float>* stereoLink    {};
+        std::atomic<float>* clampSpeed    {};
+        std::atomic<float>* maxReapDb     {};
+        std::atomic<float>* pickWindow    {};
+        std::atomic<float>* autoGain      {};
+    } p;
+
+    int  preparedChannels { 2 };
+    int  preparedBlockSize { 512 };
+    bool isPrepared { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CabRotProcessor)
 };

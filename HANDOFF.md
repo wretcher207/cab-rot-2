@@ -1,15 +1,17 @@
 # Cab Rot — Session Handoff
 
-**Last updated**: 2026-05-05 (after Phase 3.5 knob upgrade)
-**Repo**: https://github.com/wretcher207/cab-rot-2 (private)
-**Working dir**: `c:\Users\david\workspace\cab-rot`
-**Current phase**: 3.5 partially done. Phase 4 (DSP MVP) is the next concrete milestone, but a few items in Phase 3 / 3.5 still want closure.
+**Last updated**: 2026-08-07 (Phase 4 DSP MVP landed)
+**Repo**: https://github.com/wretcher207/cab-rot-2 (PUBLIC)
+**Working dir**: `C:\Users\wretc\workspace\cab-rot` (the old `C:\Users\david\...` Mac-era paths in this file are dead)
+**Current phase**: 4 done and measured. Phase 5 (mode system) is next. Phase 3's host-verification checks are still unticked and now need a real REAPER session.
 
 ---
 
 ## TL;DR
 
-Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. Phases 0 through 3 are committed and pushed, plus a tactile-knob upgrade started under "Phase 3.5". Audio is still a pure passthrough; the DSP work begins in Phase 4.
+Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. It makes sound. Phases 0 through 4 are committed: the four-band split, the transient detector, the dynamic reducer, the mixer and the trims are all wired, and the Phase 4 gate is measured by a test executable rather than by eye.
+
+The character of the thing is not tuned. Every constant that decides how it sounds lives in `Source/DSP/Tuning.h`, deliberately, so re-voicing it is one file and a rebuild. That tuning is David's job, not an agent's.
 
 The single source of truth for the build sequence is [PLAN.md](PLAN.md). Per-element design specs live in [design/CANONICAL-UI.md](design/CANONICAL-UI.md). This document is the cold-boot onboarding.
 
@@ -25,10 +27,60 @@ The single source of truth for the build sequence is [PLAN.md](PLAN.md). Per-ele
 | 2 | `a723464` | Static UI skeleton: 6 atoms (`DpdMark`, `LivePill`, `GhostToggle`, `SpectreKnob`, `ModeButton`, `MeterPill`) + 6 region components (`HeaderBar`, `WaspMeter`, `FizzReadout`, `AmpProfileGrid`, `KnobRow`, `FooterBar`); editor composes the regions; layout scales 1000×650 → 1600×1040 with no clipping |
 | 3 | `29ef836` | APVTS schema (22 parameters), UndoManager, save/restore via XML, six SliderAttachments, ButtonAttachment for Delta Listen, custom ParameterAttachment for A/B (radio-group desync fix), six ParameterAttachments for the Mode choice, ComboBoxAttachment for OS, TooltipWindow at 500 ms, Ctrl+Z / Ctrl+Y undo |
 | 3.5 | `82df973` | Tactile knob render: 7-layer drawRotarySlider with shadow, recessed track, 3-stack conic glow (16 / 9 / 5 px), domed cap with overhead-lighting gradient, top highlight + spec arc, bottom inner shadow, indicator with halo + specular highlight |
+| 4 | (this session) | DSP MVP. `Source/DSP/`: `Tuning.h`, `InputTrim`, `BandSplitter`, `TransientDetector`, `DynamicReducer`, `ReapMixer`. processBlock wired. Two measured test gates. |
 
-Build today is 0 warnings, 0 errors across `CabRot_VST3`, `CabRot_Standalone`, `CabRot_PassthroughTest`, `CabRot_ThemeTest`. Null test passes 16384/16384.
+Build is 0 warnings, 0 errors across `CabRot_VST3`, `CabRot_Standalone`, `CabRot_PassthroughTest`, `CabRot_DspTest`, `CabRot_ThemeTest`.
 
 Latest editor screenshot: [design/screenshots/phase-3.5-knobs-v2.png](design/screenshots/phase-3.5-knobs-v2.png).
+
+---
+
+## Phase 4 as built
+
+The signal path, per chunk:
+
+```
+in -> InputTrim -> BandSplitter -> 6 bands
+                                   bands summed = the reference
+                                   bands 1..4: TransientDetector -> DynamicReducer -> delta
+      reference + (Reap Mix * summed deltas) -> OutputTrim -> out
+```
+
+Two decisions in there are worth knowing before you change anything.
+
+**The reducer emits a delta, not a processed band.** Each band is replaced by
+`band * (gain - 1)`, the material to remove, and those deltas are added to the
+untouched band sum. The alternative, crossfading a dry signal against a
+processed one, comb filters, because a Linkwitz-Riley split is phase-shifted
+relative to its own input. Working in deltas means Reap Mix scales how much
+fizz comes out and can never comb the source. It also makes Phase 7's Delta
+Listen close to free: the delta buffer already exists.
+
+**A band knob at zero is bit-exactly inert.** No reduction is possible, so the
+delta is hard zeroed and that band contributes literally nothing. Guarded by a
+test, because "off" quietly meaning "nearly off" is the kind of thing that
+rots a plugin's reputation.
+
+### The Gate 4 conflict, and what was done about it
+
+PLAN.md's Gate 4 opens with "output null-tests against bypass within -80 dB".
+**That box cannot be ticked on the locked crossover topology, and it is not a
+bug.** A Linkwitz-Riley pair sums to an allpass, not to unity; JUCE says so in
+`juce_LinkwitzRileyFilter.h`. The idle plugin is therefore magnitude-flat and
+phase-shifted. Measured: worst bin deviation 0.048 dB from 30 Hz to 20 kHz,
+mean -0.0002 dB. The time-domain residual against the raw input is about
+-3.9 dB, which is what allpass phase looks like and says nothing about
+correctness.
+
+This does not affect host bypass. REAPER bypassing Cab Rot does not call
+processBlock, so the original signal comes back untouched.
+
+If literal bit-transparency while active is ever wanted, the route is a
+different topology: dynamic bell filters on the full-band signal with the
+crossover demoted to a detection-only sidechain. That is genuinely how
+soothe-class tools work, it is cheaper, and it would make Gate 4's first box
+true. It is also a rewrite of the whole reduction path and a change to a
+locked decision, so it is David's call, not a silent switch.
 
 ---
 
@@ -64,17 +116,19 @@ Status: knob layer landed and committed. Curve and breath remain. David indicate
 |---|---|---|
 | 1 | Bundle Space Grotesk Black (900) for the wordmark? | Currently using Bold (700). Black is on Google Fonts but the sandbox denied an agent-chosen download. David needs to either grab the TTF manually into `Resources/fonts/` and re-run `juce_add_binary_data`, or grant network permission once. |
 | 2 | Bundle JetBrains Mono Medium (500) for ui-chrome? | Currently using Regular (400). Same as above. |
-| 3 | Phase 3.5 (b) spectral curve before Phase 4 DSP? | Open. Doing it first means the curve nodes drive `fizzHunt` per-band parameters that Phase 4 also needs to define. Doing Phase 4 first means we redo the WaspMeter once the DSP is in. |
+| 3 | ~~Phase 3.5 (b) spectral curve before Phase 4 DSP?~~ | **Resolved by events.** Phase 4 went first. The WaspMeter is still the static 16-bar histogram and now wants real data, so the curve work folds naturally into Phase 6 rather than standing alone. `getBandReductionDb()` is already on the processor waiting for it. |
 | 4 | Phase 3.5 (c) idle breath layer? | Open. Self-contained polish; can land any time. |
 | 5 | Verify 2026 JUCE Indie license pricing/terms before Phase 10? | Open per locked decision #10. Not blocking until Phase 10 packaging. |
+| 6 | **Keep the Cab Rot identity or finish the Sunder rebrand?** | Open, and now the biggest one. The repo holds two unreconciled identities: Cab Rot (toxic green, 6 knobs, finished UI) and Sunder (amber "Scientific Luxury", simpler parameter surface, mockups only). Phase 4 is identity-agnostic, so nothing here forced the question. Phase 5 onward does. Sunder means redoing a UI that is already done. |
+| 7 | **Crossover topology.** | Open. See the Gate 4 conflict above. Current LR split is correct and measures well; the alternative buys literal bit-transparency at the cost of a reduction-path rewrite. Only worth doing if the phase shift bothers David in a real mix. |
 
 ---
 
-## Phase 4 — DSP MVP (next concrete milestone)
+## Phase 4 — DSP MVP (DONE, measured)
 
 **Goal per PLAN.md**: 5150 mode plays, six knobs functional, fizz audibly removed without killing pick attack. Minimum viable harshness controller.
 
-Tasks in PLAN.md lines 222–242. Order I'd recommend:
+Built in the order below. Kept here because it still describes the code.
 
 1. **`Source/DSP/InputTrim.{h,cpp}`** — single SmoothedValue gain stage on a per-channel basis, dB to gain conversion. Tied to `params::inputGain`.
 2. **`Source/DSP/BandSplitter.{h,cpp}`** — 4-band Linkwitz-Riley crossover at 3.8 / 5.5 / 8 kHz. Bands: Bite (2.4–3.8 kHz, with HPF), Plastic (3.8–5.5 kHz), Wasp (5.5–8 kHz), Ice (8–12 kHz, with LPF). **Phase 4 explicit null test required**: feed pink noise, sum bands, confirm sum == input within −60 dB. If not, switch crossover topology immediately. Risk register flagged this as Medium / High.
@@ -91,26 +145,30 @@ Tasks in PLAN.md lines 222–242. Order I'd recommend:
    - `reapMix`: wet/dry
 8. **Smoothing**: every parameter goes through `juce::SmoothedValue` to avoid zipper noise.
 
-### Phase 4 self-review gate (PLAN.md lines 244–252)
+### Phase 4 self-review gate: measured results
 
-- [ ] All knobs at 0 + Reap Mix at 0: null vs bypass within −80 dB
-- [ ] Fizz Hunt 100 + Reap Mix 100 + others 50: pink-noise spectrum shows attenuation in 4–8 kHz
-- [ ] Edge Preserve 100 on real DI guitar: first 5 ms of pick attack measurably preserved (spectrogram check)
-- [ ] No clicks / pops / zipper noise on fast knob sweeps
-- [ ] No denormals (`_MM_SET_FLUSH_ZERO_MODE` on)
-- [ ] CPU < 3% on David's machine, stereo 48 kHz, oversampling off
-- [ ] Plugin handles 44.1 / 48 / 88.2 / 96 / 176.4 / 192 kHz without crashing
+Run `CabRot_DspTest.exe` to reproduce all of these. Numbers are from this
+machine, 2026-08-07.
 
-The pluginval mention in the risk register: start running pluginval continuously from Phase 4, not waiting for Phase 9.
+- [x] ~~All knobs at 0 + Reap Mix at 0: null vs bypass within −80 dB~~ **Superseded.** Not achievable on an LR crossover, see the conflict note above. Replaced by two checks that are: magnitude flat within **0.048 dB** worst bin, 30 Hz to 20 kHz, and band ceilings at zero are **bit-exactly** inert (max difference 0.000000000000).
+- [x] Fizz Hunt 100 + Reap Mix 100 + others 50: attenuation in 4-8 kHz. **-9.06 dB** in 4-8 kHz, **-0.02 dB** below 900 Hz. Surgical, not a broadband dip.
+- [x] Edge Preserve 100: pick attack measurably preserved. Attack peaks survive **4.28 dB** louder at Edge Preserve 100 than at 0, same reduction settings. This is the architectural claim, and it holds.
+- [x] No clicks / pops / zipper noise on fast knob sweeps. Worst output slew **1.486x** the input's while throwing Fizz Hunt and Reap Mix end to end every block.
+- [x] No denormals. Silence after a burst decays to **true zero**.
+- [x] CPU < 3%, stereo 48 kHz, oversampling off. See the test output for the current figure on this box.
+- [x] 44.1 / 48 / 88.2 / 96 / 176.4 / 192 kHz. All sane. Block sizes 1 / 7 / 64 / 512 / 2048 too, including blocks larger than the prepared size, which get sliced.
 
-### Phase 4 null-test reuse
+Still open from the gate, and only David can close them: does the fizz
+actually go away, and does the guitar still sound like a guitar. No test can
+answer either.
 
-`tests/passthrough_test.cpp` is the existing harness. For Phase 4, add a sibling test `tests/sine-sweep-null.cpp` (PLAN.md repo structure) that:
-1. Sets all knobs to 0 except Reap Mix (also 0, so fully dry)
-2. Feeds a sine sweep
-3. Confirms output equals input within −80 dB
+The pluginval mention in the risk register: start running pluginval continuously from Phase 4, not waiting for Phase 9. **Not yet run on this machine.**
 
-This goes into the same `CabRot_PassthroughTest` exe (or a new sibling) as a CTest target.
+### The test harness
+
+- `tests/TestSupport.h` — shared helpers: deterministic pink noise, parameter setters, averaged FFT spectra, band-delta maths.
+- `tests/passthrough_test.cpp` — the fast transparency gate. Repurposed from the Phase 0 sample-perfect null, which the Phase 4 topology retired.
+- `tests/dsp_test.cpp` — the Phase 4 gate, nine checks, about 30 s.
 
 ---
 
@@ -127,21 +185,28 @@ This goes into the same `CabRot_PassthroughTest` exe (or a new sibling) as a CTe
 
 ## Build & install commands (verified working)
 
-The bundled CMake from VS 2026 Build Tools is what works on this machine. Path in scripts and below.
+**Changed 2026-08-07.** The old machine used the CMake bundled with VS 2026
+(18) Build Tools. This machine has both toolchains installed, but the VS 18
+install here has **no CMake component**, so the path in the old instructions
+does not exist. Use the VS 2022 Build Tools pair instead. Both are present,
+and 2022 is the one that is complete.
 
 ```powershell
-$cmake = "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+$cmake = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
 
 # Configure (only needed once, or after CMakeLists.txt changes)
-& $cmake -S . -B build -G "Visual Studio 18 2026" -A x64
+& $cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 
 # Build everything
 & $cmake --build build --config Release `
-    --target CabRot_VST3 CabRot_Standalone CabRot_PassthroughTest CabRot_ThemeTest `
+    --target CabRot_VST3 CabRot_Standalone CabRot_PassthroughTest CabRot_DspTest CabRot_ThemeTest `
     -- /m /nologo /verbosity:minimal /clp:Summary
 
-# Run the null test
+# Transparency gate (fast)
 .\build\CabRot_PassthroughTest_artefacts\Release\CabRot_PassthroughTest.exe
+
+# Phase 4 DSP gate (about 30 s, mostly the CPU benchmark)
+.\build\CabRot_DspTest_artefacts\Release\CabRot_DspTest.exe
 
 # Snapshot the editor (Standalone -> PNG, with chrome cropped)
 .\tools\visual-diff.ps1 -SkipBuild
@@ -171,7 +236,7 @@ python tools\compare-pngs.py design\screenshots\stitch-reference.png `
                               --fuzz 1 --threshold 8
 ```
 
-VST3 install path (user-scope, no admin): `C:\Users\david\AppData\Local\Programs\Common\VST3\Cab Rot.vst3`. Reaper scans this without configuration.
+VST3 install path (user-scope, no admin): `C:\Users\wretc\AppData\Local\Programs\Common\VST3\Cab Rot.vst3`. Reaper scans this without configuration.
 
 `CABROT_COPY_AFTER_BUILD` is OFF by default in `CMakeLists.txt` so the post-build copy doesn't fight a running DAW. Use `tools/install-vst3.ps1` to install on demand.
 
@@ -264,14 +329,15 @@ git log --oneline | Select-Object -First 6
 .\build\CabRot_PassthroughTest_artefacts\Release\CabRot_PassthroughTest.exe   # null test
 ```
 
-4. Confirm with David that no decisions in §"Open decisions" have changed since 2026-05-05.
+4. Confirm with David that no decisions in §"Open decisions" have changed. Decisions 6 (identity) and 7 (topology) are the ones that gate real work.
 5. Pick the next item:
-   - If Phase 3 closure (host verification) hasn't happened yet, prompt David for the runtime checks.
-   - Otherwise: Phase 4 DSP MVP, OR Phase 3.5 spectral curve, OR Phase 3.5 idle breath. David can redirect; default if unspecified is Phase 4.
+   - Phase 3 host verification still has not happened. It needs David at the keyboard in REAPER, not an agent.
+   - Otherwise: Phase 5 mode system is the next agent-shaped block, but the six mode tunings are ear work and land better after David has listened to Phase 4 on his own material.
 
 ---
 
 ## Changelog
 
 - **2026-05-05** — Initial handoff written (Phase 0 ready to start).
+- **2026-08-07** — Phase 4 DSP MVP built and measured on the Windows machine. First build of this repo on `wretc`; the Mac-era source compiled with 0 warnings and 0 errors once the CMake path was pointed at VS 2022 instead of the incomplete VS 18 install. `Source/DSP/` created (Tuning, InputTrim, BandSplitter, TransientDetector, DynamicReducer, ReapMixer), processBlock wired, `juce_dsp` added to the link lines. Two test executables replace the retired Phase 0 null test. Found and documented a genuine conflict between the locked LR crossover and Gate 4's first checkbox. The plugin makes sound and has never been heard by anyone.
 - **2026-05-05** — Updated. Phases 0 / 1 / 2 / 3 / 3.5(a) shipped. Visual direction shifted toward Throat-Wire depth/flow language while keeping the toxic-green Spectre Codex palette. Phase 3.5(b) spectral curve and 3.5(c) idle breath layer remain. Phase 4 is the next concrete audio milestone. Repo pushed to GitHub at `wretcher207/cab-rot-2` private.

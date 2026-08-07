@@ -98,14 +98,145 @@ CabRotProcessor::CabRotProcessor()
                                 .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                                 .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
+    p.fizzHunt     = apvts.getRawParameterValue (params::fizzHunt);
+    p.edgePreserve = apvts.getRawParameterValue (params::edgePreserve);
+    p.cabSmooth    = apvts.getRawParameterValue (params::cabSmooth);
+    p.digitalSand  = apvts.getRawParameterValue (params::digitalSand);
+    p.airRot       = apvts.getRawParameterValue (params::airRot);
+    p.reapMix      = apvts.getRawParameterValue (params::reapMix);
+    p.inputGain    = apvts.getRawParameterValue (params::inputGain);
+    p.outputGain   = apvts.getRawParameterValue (params::outputGain);
+    p.stereoLink   = apvts.getRawParameterValue (params::stereoLink);
+    p.clampSpeed   = apvts.getRawParameterValue (params::clampSpeed);
+    p.maxReapDb    = apvts.getRawParameterValue (params::maxReapDb);
+    p.pickWindow   = apvts.getRawParameterValue (params::pickWindow);
+    p.autoGain     = apvts.getRawParameterValue (params::autoGain);
+
+    for (auto& r : bandReductionDb)
+        r.store (0.0f, std::memory_order_relaxed);
 }
 
-void CabRotProcessor::prepareToPlay (double, int)
+void CabRotProcessor::prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock)
 {
+    preparedChannels  = juce::jmax (1, getTotalNumInputChannels());
+    preparedBlockSize = juce::jmax (32, maximumExpectedSamplesPerBlock);
+
+    inputStage .prepare (sampleRate, preparedChannels);
+    outputStage.prepare (sampleRate, preparedChannels);
+    splitter   .prepare (sampleRate, preparedChannels, preparedBlockSize);
+    mixer      .prepare (sampleRate, preparedChannels);
+
+    for (auto& d : detectors)
+        d.prepare (sampleRate);
+
+    for (auto& r : reducers)
+        r.prepare (sampleRate, preparedChannels);
+
+    for (auto& b : bandBuffers)
+    {
+        b.setSize (preparedChannels, preparedBlockSize, false, false, true);
+        b.clear();
+    }
+
+    deltaBuffer.setSize (preparedChannels, preparedBlockSize, false, false, true);
+    deltaBuffer.clear();
+
+    gateScratch.assign ((size_t) preparedBlockSize, 0.0f);
+
+    updateDspParameters();
+    inputStage .snapToTarget();
+    outputStage.snapToTarget();
+    mixer.reset();
+
+    isPrepared = true;
 }
 
 void CabRotProcessor::releaseResources()
 {
+    isPrepared = false;
+
+    splitter.reset();
+    mixer.reset();
+    inputStage.reset();
+    outputStage.reset();
+
+    for (auto& d : detectors)
+        d.reset();
+
+    for (auto& r : reducers)
+        r.reset();
+
+    for (auto& b : bandBuffers)
+        b.setSize (0, 0);
+
+    deltaBuffer.setSize (0, 0);
+    gateScratch.clear();
+}
+
+float CabRotProcessor::getBandReductionDb (int processedBand) const noexcept
+{
+    if (! juce::isPositiveAndBelow (processedBand, numProcessedBands))
+        return 0.0f;
+
+    return bandReductionDb[(size_t) processedBand].load (std::memory_order_relaxed);
+}
+
+void CabRotProcessor::updateDspParameters() noexcept
+{
+    using namespace dsp::tuning;
+
+    const auto norm = [] (const std::atomic<float>* v) noexcept
+    {
+        return juce::jlimit (0.0f, 1.0f, v->load (std::memory_order_relaxed) * 0.01f);
+    };
+
+    const float fizz    = norm (p.fizzHunt);
+    const float edge    = norm (p.edgePreserve);
+    const float smooth  = norm (p.cabSmooth);
+    const float sand    = norm (p.digitalSand);
+    const float air     = norm (p.airRot);
+    const float mixAmt  = norm (p.reapMix);
+
+    const float ceilingDb  = p.maxReapDb ->load (std::memory_order_relaxed);
+    const float attackMs   = p.clampSpeed->load (std::memory_order_relaxed);
+    const float windowMs   = p.pickWindow->load (std::memory_order_relaxed);
+    const bool  wantsAuto  = p.autoGain  ->load (std::memory_order_relaxed) > 0.5f;
+
+    // Stereo Behavior: 0 Linked, 1 Partial, 2 Dual Mono.
+    const int linkChoice = juce::roundToInt (p.stereoLink->load (std::memory_order_relaxed));
+    const float link = (linkChoice == 0) ? 1.0f : (linkChoice == 1 ? 0.5f : 0.0f);
+
+    const float thresholdDb = kThresholdAtZeroDb
+                            + fizz * (kThresholdAtHundredDb - kThresholdAtZeroDb);
+
+    // Knob to band, per PLAN.md's mapping. Order is BITE, PLASTIC, WASP, ICE.
+    const float bandAmount[numProcessedBands] = { smooth, sand, sand, air };
+
+    for (int i = 0; i < numProcessedBands; ++i)
+    {
+        auto& reducer = reducers[(size_t) i];
+        reducer.setThresholdDb (thresholdDb);
+        reducer.setMaxReductionDb (bandAmount[i] * ceilingDb);
+        reducer.setStereoLink (link);
+        reducer.setAttackMs (attackMs);
+        reducer.setStaticTrimDb (0.0f);
+
+        auto& detector = detectors[(size_t) i];
+        detector.setEdgePreserve (edge);
+        detector.setPickWindowMs (windowMs);
+    }
+
+    // Air Rot's shelf, on the ICE band only, engaging over the top half of
+    // the knob so the midpoint stays honest.
+    const float shelfDrive = juce::jmax (0.0f, (air - kAirRotShelfStart))
+                           / juce::jmax (1.0e-6f, 1.0f - kAirRotShelfStart);
+    reducers[numProcessedBands - 1].setStaticTrimDb (-shelfDrive * kAirRotShelfMaxCutDb);
+
+    inputStage .setGainDb (p.inputGain ->load (std::memory_order_relaxed));
+    outputStage.setGainDb (p.outputGain->load (std::memory_order_relaxed));
+
+    mixer.setMix (mixAmt);
+    mixer.setAutoGain (wantsAuto);
 }
 
 bool CabRotProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -125,14 +256,77 @@ void CabRotProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
     const auto totalNumInputChannels  = getTotalNumInputChannels();
     const auto totalNumOutputChannels = getTotalNumOutputChannels();
+    const auto numSamples             = buffer.getNumSamples();
 
     for (int channel = totalNumInputChannels; channel < totalNumOutputChannels; ++channel)
-        buffer.clear (channel, 0, buffer.getNumSamples());
+        buffer.clear (channel, 0, numSamples);
 
-    // Phase 3: APVTS exists but no DSP yet. processBlock remains a pure
-    // passthrough so the null test continues at 16384/16384. Phase 4 wires
-    // the band splitter and dynamic reducer.
-    juce::ignoreUnused (totalNumInputChannels);
+    if (! isPrepared || numSamples <= 0)
+        return;
+
+    const int numChannels = juce::jmin (totalNumInputChannels, preparedChannels);
+
+    if (numChannels <= 0)
+        return;
+
+    updateDspParameters();
+
+    // Hosts are supposed to honour the block size they announced, but a
+    // longer block should thin the sound rather than run off the end of the
+    // scratch buffers, so slice it.
+    for (int offset = 0; offset < numSamples; offset += preparedBlockSize)
+    {
+        const int chunk = juce::jmin (preparedBlockSize, numSamples - offset);
+
+        juce::AudioBuffer<float> slice (buffer.getArrayOfWritePointers(),
+                                        numChannels,
+                                        offset,
+                                        chunk);
+
+        processChunk (slice, numChannels, chunk);
+    }
+}
+
+void CabRotProcessor::processChunk (juce::AudioBuffer<float>& block, int numChannels, int numSamples) noexcept
+{
+    inputStage.process (block, numChannels, numSamples);
+
+    splitter.process (block, bandBuffers, numChannels, numSamples);
+
+    // The band sum is the reference everything downstream measures against.
+    // It is an allpassed copy of the input, not a bit-identical one, which is
+    // inherent to a Linkwitz-Riley split and is exactly why the dry side of
+    // the mix is taken from here rather than from the raw input.
+    block.clear (0, numSamples);
+    for (auto& band : bandBuffers)
+        for (int ch = 0; ch < numChannels; ++ch)
+            block.addFrom (ch, 0, band, ch, 0, numSamples);
+
+    deltaBuffer.clear (0, numSamples);
+
+    for (int i = 0; i < numProcessedBands; ++i)
+    {
+        auto& band = bandBuffers[(size_t) (i + dsp::tuning::kFirstProcessedBand)];
+
+        detectors[(size_t) i].process (band.getArrayOfReadPointers(),
+                                       numChannels,
+                                       numSamples,
+                                       gateScratch.data());
+
+        const float reduced = reducers[(size_t) i].processToDelta (band.getArrayOfWritePointers(),
+                                                                   gateScratch.data(),
+                                                                   numChannels,
+                                                                   numSamples);
+
+        bandReductionDb[(size_t) i].store (reduced, std::memory_order_relaxed);
+
+        for (int ch = 0; ch < numChannels; ++ch)
+            deltaBuffer.addFrom (ch, 0, band, ch, 0, numSamples);
+    }
+
+    mixer.process (block, deltaBuffer, numChannels, numSamples);
+
+    outputStage.process (block, numChannels, numSamples);
 }
 
 juce::AudioProcessorEditor* CabRotProcessor::createEditor()
