@@ -29,9 +29,13 @@ real processing, and a control without audio behavior stays hidden.
   measured CPU, LIVE, and CLIPPING / PROCESSING / IDLE. `uiAnimation=false`
   freezes the last real display values.
 - A/B owns two deep APVTS snapshots, persists them in the version 2 wrapper,
-  and accepts legacy raw `CABROT` state.
-- Mode buttons remain hidden until their DSP behavior lands. Oversampling
-  remains hidden until the real 2x / 4x chain lands.
+  accepts legacy raw `CABROT` state, and is deliberately non-automatable.
+  UI changes complete synchronously on the message thread; a generation guard
+  keeps audio blocks on one coherent slot while APVTS state is replaced.
+- Mode buttons are visible because the provisional six-profile DSP table now
+  changes audio with 300 ms derivative ramps. The voicings still require
+  David's by-ear approval. Oversampling remains hidden until the real 2x / 4x
+  chain lands.
 - Continuous resize, aspect-locked 1.54:1 (1000x650 min to 1600x1040 max)
 - Native JUCE rendering, no WebView
 - Aesthetic: the Dead Pixel Design brand system. Near-black monochrome, phosphor
@@ -59,6 +63,7 @@ control availability.
   read the woff2 files the brand kit ships, so these were converted with
   fontTools. Inter is pinned at weights 400 and 500, not variable.
 - `Source/DSP/`: BandSplitter, TransientDetector, DynamicReducer, ReapMixer, InputTrim
+- `Source/DSP/ModeConfig.h`: provisional six-profile derivative table.
 - `Source/DSP/Tuning.h`: **every constant that decides how it sounds.** Re-voice here, nowhere else.
 - `Source/PluginEditor.cpp`: APVTS attachments plus the single 30 Hz telemetry
   poll that drives all visible instruments.
@@ -68,7 +73,7 @@ control availability.
 - `tests/passthrough_test.cpp`: transparency gate
 - `tests/dsp_test.cpp`: DSP and UI-truth gate. Its CPU check measures the
   machine, so set `CABROT_SKIP_CPU_BENCH=1` on a loaded box and read the printed
-  figures instead. The verified baseline at `ef092c7` reports 33/33 assertions
+  figures instead. The verified baseline at `24fa790` reports 37/37 assertions
   with that benchmark skipped.
 
 ## Build

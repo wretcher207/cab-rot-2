@@ -1,6 +1,6 @@
 # Cab Rot: Canonical UI
 
-**Status**: updated 2026-08-10 through the Tier 2 UI truth pass at `ef092c7`.
+**Status**: updated 2026-08-10 through the Tier 3 UI truth pass at `24fa790`.
 Layout geometry, region sizes, spacing and component dimensions below remain
 authoritative. All colour, radius and typography rules match the DPD brand kit
 (`dead-pixel-design-v4/brand-kit/AI-BRAND-BRIEF.md`), which is the binding
@@ -189,9 +189,10 @@ AMP PROFILE section (fills remaining height when available):
   unselected is rule border + inkMeta text, hover lifts unselected ink to
   inkBody.
 - Modes: 5150, RECTO, HM-2, DJENT, BLACKENED, SLUDGE.
-- The whole section stays hidden until the separate Tier 3 provisional mode
-  implementation makes these switches change audio. A stored parameter alone
-  is not enough to show the controls.
+- The section is visible because `ModeConfig.h` now gives every switch real
+  DSP derivatives. Threshold offset, four ceiling scales, attack scale, edge
+  bias, and shelf start ramp over 300 ms. These are provisional voicings and
+  still require David's by-ear approval before release.
 
 ### 7.4 KnobRow (192 px tall, full width)
 
@@ -220,7 +221,10 @@ AMP PROFILE section (fills remaining height when available):
   Selected side: inkPrimary border + text. Each side owns a detached deep
   APVTS snapshot. The version 2 preset wrapper persists both snapshots and
   the active slot; legacy raw `CABROT` state still loads and clones safely on
-  first entry to the other side.
+  first entry to the other side. A/B is a non-automatable meta parameter:
+  button changes complete synchronously on the message thread, while an
+  audio-thread generation guard prevents a block from reading a half-applied
+  snapshot.
 - Right: the oversampling parameter and attachment remain for state
   compatibility, but the OS label and combo stay hidden until real 2x/4x DSP
   ships. Status text is `V0.1.0 / CLIPPING`, `/ PROCESSING`, or `/ IDLE`, with

@@ -4,6 +4,11 @@ Date: 2026-08-10. Branch: `facelift-dpd`. Scope: Dead Pixel Design brand
 facelift of the plugin UI. DSP, `PluginProcessor.cpp`, `Source/DSP/`, and
 `tests/` are untouched.
 
+This is a historical report for the visual-only facelift. Its old telemetry
+and control-availability notes were superseded by the UI truth work through
+`24fa790`. `design/CANONICAL-UI.md`, `design/UI-FIX-SPEC.md`, and `HANDOFF.md`
+describe the current product.
+
 ## Binding document
 
 `dead-pixel-design-v4/brand-kit/AI-BRAND-BRIEF.md`, read in full before any
@@ -111,8 +116,8 @@ inkPrimary, unselected rule + inkMeta.
 ### Copy
 - Header reads DEAD PIXEL HARMONIX (Dead Pixel Harmonix is the shipping
   label): `Source/UI/HeaderBar.cpp:41-43`.
-- SCANNING FOR HARSHNESS deleted. Footer shows the real processing state:
-  `Source/UI/FooterBar.cpp:12` and `:58-65` ("V0.1.0 / PROCESSING").
+- SCANNING FOR HARSHNESS deleted. The later truth pass made the footer state
+  live: `V0.1.0 / CLIPPING`, `/ PROCESSING`, or `/ IDLE`.
 - THE CRYPT deleted (it had no handler; verified the button opened
   nothing): `Source/UI/FooterBar.h`, `Source/UI/FooterBar.cpp`, and the
   tooltip reference removed from `Source/PluginEditor.cpp:168`.
@@ -141,15 +146,11 @@ inkPrimary, unselected rule + inkMeta.
 - `design/CANONICAL-UI.md` rewritten so its colour, radius and typography
   sections describe exactly what now ships.
 
-## Known honest limits
+## Superseded limits
 
-- The spectral display data is still deterministic placeholder content
-  (documented in `Source/UI/WaspMeter.h:52-70`); Phase 6 owns the live
-  wiring via `getBandReductionDb()`. Placeholder values stay under the 12
-  dB threshold, so the `stateError` path is proven by construction (clipped
-  second stroke pass) but not yet exercised by real audio.
-- The `stateLive` breathing in the header mark runs at 30 Hz on a 3 second
-  cycle, consistent with "motion is quiet"; it suspends when the component
-  is hidden.
-- `ThemeTest` (`Source/UI/ThemeTest.cpp`) is now a paint-only brand
-  reference frame for the same system rather than a Stitch diff target.
+- The deterministic spectral placeholder was deleted. The current Wasp Meter
+  draws four live reduction columns and held peaks on real band boundaries.
+- LIVE no longer breathes. It is a static, state-driven square that expires
+  after one second without input over -72 dBFS.
+- `ThemeTest` (`Source/UI/ThemeTest.cpp`) remains a paint-only brand reference
+  frame rather than a product-state simulator.

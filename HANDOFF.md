@@ -1,16 +1,16 @@
 # Cab Rot - Session Handoff
 
-**Last updated**: 2026-08-10 (UI truth baseline through `ef092c7`)
+**Last updated**: 2026-08-10 (UI truth baseline through `24fa790`)
 **Repo**: https://github.com/wretcher207/cab-rot-2 (PUBLIC)
 **Working dir**: `C:\Users\wretc\workspace\cab-rot` (the old `C:\Users\david\...` Mac-era paths in this file are dead)
-**Branch / verified implementation baseline**: `fix/ui-truth` at `ef092c7`, local with no upstream. `main` and `origin/main` remain at `17caba9`.
-**Current phase**: Phase 4 DSP and UI truth Tiers 1 and 2 are implemented. The provisional Phase 5 mode system is next. Mode buttons remain hidden until that DSP behavior and its tests land.
+**Branch / verified implementation baseline**: `fix/ui-truth` at `24fa790`, local with no upstream. `main` and `origin/main` remain at `17caba9`.
+**Current phase**: Phase 4 DSP and UI truth Tiers 1 through 3 are implemented. Six provisional modes are visible and tested; David's by-ear approval is still open. Oversampling remains hidden and unimplemented.
 
 ---
 
 ## TL;DR
 
-Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. It makes sound and does a decent job on real high-gain guitar material according to David's 2026-08-09 REAPER test. Phases 0 through 4 are committed: the four-band reduction path, transient detector, dynamic reducer, mixer, and trims are wired. The UI truth pass now drives every visible instrument from real processing, makes Delta Listen and A/B functional, and hides unavailable mode and oversampling controls. The machine gate is measured by test executables; sound quality was confirmed separately by David.
+Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. It makes sound and does a decent job on real high-gain guitar material according to David's 2026-08-09 REAPER test. Phases 0 through 4 are committed: the four-band reduction path, transient detector, dynamic reducer, mixer, and trims are wired. The UI truth pass now drives every visible instrument from real processing, makes Delta Listen and A/B functional, and gives all six visible amp profiles real provisional DSP behavior. Only the unavailable oversampling control remains hidden. The machine gate is measured by test executables; final profile voicing is still ear work.
 
 David chose to keep the **Cab Rot** identity. The toxic-green UI is now fully replaced by the Dead Pixel Design brand system (2026-08-10 facelift): near-black monochrome, hairlines, zero radius, DPD Display / Inter / JetBrains Mono. `Source/Theme/Palette.h` is hand-maintained from the brand kit; the Stitch palette and `tools/oklch-to-srgb.py` are deleted. See `design/FACELIFT-REPORT.md` for the rule-by-rule map and `design/CANONICAL-UI.md` for the rewritten spec. After listening, he asked for every main knob to become effective by "just a hair." The change (now committed on `phase-4-dsp`) adds a shallow response lift: a control at 50% drives the DSP at 52%, while 0% remains exact and 100% is unchanged. The strength constant is `kMainControlLift` in `Source/DSP/Tuning.h`; the curve is applied to all six main controls in `CabRotProcessor::updateDspParameters()`.
 
@@ -34,13 +34,17 @@ The single source of truth for the build sequence is [PLAN.md](PLAN.md). Per-ele
 | 4 tuning | `4dadc68` on `phase-4-dsp`... `84c5082` adds the CPU-bench skip env var | Subtle response lift across Fizz Hunt, Edge Preserve, Cab Smooth, Digital Sand, Air Rot, and Reap Mix. Midpoint maps 50% → 52%; endpoints stay fixed. |
 | facelift | `facelift-dpd`, 6 commits `9278904` → `393d888` | DPD brand facelift: hand-maintained `Palette.h`, brand fonts, flat atoms/regions, rewritten spectral display with dB scale, THE CRYPT deleted, header reads DEAD PIXEL HARMONIX, CANONICAL-UI.md rewritten, Stitch reference deleted. |
 | UI truth Tiers 1-2 | `2e61723` → `ef092c7` on `fix/ui-truth` | Removed fabricated UI, added one editor-owned 30 Hz telemetry poll, live reduction columns and peaks, real Fizz/CPU/meters/status, correct-polarity Delta Listen, deep persisted A/B snapshots, truthful knob defaults/units/interaction, and hid mode/OS controls that still lacked DSP. |
+| UI truth Tier 3 | `3d03744` | Added the exact six-profile provisional mode table, 300 ms ramps for all derivatives, no-click/distinct-output tests, and revealed the now-functional grid. |
+| A/B coherence | `24fa790` | Made A/B a synchronous non-automatable meta operation for UI use, guarded APVTS replacement with an audio-thread generation check, and strengthened the rapid-write regression. |
 
-The last recorded five-target Release build was 0 warnings and 0 errors. The
-current `ef092c7` test binaries are green, but the final five-target rebuild
-must still be run after Tier 3 and the documentation merge.
+The final five-target Release build at `24fa790` succeeded for VST3,
+Standalone, PassthroughTest, DspTest, and ThemeTest with 0 warnings and 0
+errors. Passthrough is 3/3 and DSP is 37/37 with the CPU benchmark skipped.
 
-There is no approved final UI-truth screenshot yet. Any Phase 3.5 or facelift
-screenshot is historical and must not be used as the current visual target.
+Current agent-reviewed captures are `design/screenshots/ui-truth-final-default.png`,
+`ui-truth-final-min.png`, and `ui-truth-final-max.png`. The directory is
+gitignored. Any Phase 3.5 or facelift screenshot is historical and must not be
+used as the current visual target.
 
 ---
 
@@ -164,7 +168,7 @@ Built in the order below. Kept here because it still describes the code.
 ### Phase 4 self-review gate: measured results
 
 Run `CabRot_DspTest.exe` to reproduce all of these. The latest functional run
-documented below was on this machine at `ef092c7`, 2026-08-10.
+documented below was on this machine at `24fa790`, 2026-08-10.
 
 - [x] ~~All knobs at 0 + Reap Mix at 0: null vs bypass within −80 dB~~ **Superseded.** Not achievable on an LR crossover, see the conflict note above. Replaced by two checks that are: magnitude flat within **0.048 dB** worst bin, 30 Hz to 20 kHz, and band ceilings at zero are **bit-exactly** inert (max difference 0.000000000000).
 - [x] Fizz Hunt 100 + Reap Mix 100 + others 50: attenuation in 4-8 kHz. **-9.18 dB** in 4-8 kHz after the slight control-response lift, **-0.02 dB** below 900 Hz. Surgical, not a broadband dip.
@@ -182,7 +186,7 @@ The pluginval mention in the risk register: start running pluginval continuously
 ### 2026-08-10 UI-truth baseline
 
 - `fix/ui-truth` is local with no upstream. The verified implementation
-  baseline is `ef092c7`; `main` and `origin/main` are still `17caba9`.
+  baseline is `24fa790`; `main` and `origin/main` are still `17caba9`.
 - The adversarial review prompt, `design/UI-FIX-SPEC.md`, and `references/`
   are intentionally untracked source material. Preserve them unless David
   explicitly chooses to add them.
@@ -194,20 +198,24 @@ The pluginval mention in the risk register: start running pluginval continuously
 - Delta Listen outputs the removed signal with correct polarity. A/B switches
   deep APVTS snapshots on the message thread and persists both slots in the
   `CABROT_PLUGIN_STATE` version 2 wrapper. Legacy raw `CABROT` state still
-  loads.
-- The mode grid remains hidden because `ef092c7` has no profile DSP. The OS
-  combo also remains hidden because oversampling is unimplemented.
+  loads. A/B is a non-automatable meta operation. UI clicks finish
+  synchronously, and an odd/even generation guard keeps each audio block on a
+  coherent old or new snapshot while APVTS replaces its child parameters.
+- The mode grid is visible. `ModeConfig.h` supplies the exact provisional
+  5150 / Recto / HM-2 / Djent / Blackened / Sludge table, including HM-2's
+  1.50 WASP ceiling. All five derivative classes ramp for 300 ms. The OS combo
+  remains hidden because oversampling is unimplemented.
 - Verification run on this machine: `CabRot_PassthroughTest` **3/3 passed**;
-  `CabRot_DspTest` **33/33 passed** with `CABROT_SKIP_CPU_BENCH=1`. The skipped
-  benchmark printed 2.812% all-open, 1.896% idle split, and 0.916% reduction
+  `CabRot_DspTest` **37/37 passed** with `CABROT_SKIP_CPU_BENCH=1`. The skipped
+  benchmark printed 2.330% all-open, 1.623% idle split, and 0.707% reduction
   cost. Treat those numbers as machine observations, not a release baseline.
-- A fresh five-target Release build and approved default/minimum/maximum
-  screenshots are still pending after Tier 3. Do not claim the branch is final
-  or install it over the existing VST3 yet.
-- **Next concrete step:** implement and test the provisional Phase 5 mode table,
-  reveal the grid only after it changes audio, then run the full build and
-  screenshot gates. David still validates all six profiles by ear before
-  release.
+- Default, minimum, and maximum captures are present under the gitignored
+  `design/screenshots/ui-truth-final-*.png` paths and passed the no-clipping,
+  four-band, log-axis, no-OS, silent-Fizz inspection gate.
+- **Next concrete step:** David validates all six provisional profiles by ear
+  on representative guitars. Oversampling, pluginval, stress, presets, and
+  packaging remain later phases. Do not install over the existing VST3 without
+  an explicit install request.
 
 ### The test harness
 
@@ -216,15 +224,16 @@ The pluginval mention in the risk register: start running pluginval continuously
 - `tests/dsp_test.cpp`: DSP and UI-truth gate, including full-host-block
   telemetry aggregation, Delta polarity, A/B values/audio/persistence/legacy
   loading, and the machine-dependent CPU benchmark. The skipped-CPU baseline
-  currently reports 33 assertions.
+  currently reports 37 assertions.
 
 ---
 
 ## Phases 5 → 10 (one-line each, refer PLAN.md for detail)
 
-- **Phase 5**: Next. Provisional `ModeConfig` table plus click-free ramps and a
-  mode-sweep assertion. Reveal the six buttons only after the processing path
-  reads the mode. David validates the tunings by ear before release.
+- **Phase 5**: The UI-FIX provisional table and click-free ramps are landed,
+  and the six buttons are visible. The test proves six distinct settled
+  outputs and a no-step mode sweep. This is not release voicing until David
+  validates all six by ear.
 - **Phase 6**: Partly completed ahead of plan. Live reduction columns, peak
   holds, and real Fizz are done. Only a real FFT input spectrum/history layer
   remains optional; no placeholder shape is allowed.
@@ -301,11 +310,17 @@ These are documented because they bit at least once during the build:
 - **`juce::ParameterAttachment` is non-copyable** — vectors of it require `unique_ptr` storage.
 - **`Font::getStringWidth` is deprecated** in JUCE 8. Use `juce::GlyphArrangement::getBoundingBox`.
 - **A/B `ButtonAttachment` desync**: a plain `ButtonAttachment` on B alone leaves both A and B dark when the host writes `aOrB=false`, because JUCE's radio group only deselects on button-on. Workaround in `PluginEditor.cpp`: a single `ParameterAttachment` drives both buttons in lockstep.
-- **A/B state work is not realtime-safe.** The APVTS listener only publishes
-  an atomic slot request. The processor's message-thread timer performs the
-  locked deep-copy and `replaceState` work. Presets use a strict version 2
-  wrapper with both detached slot trees; keep legacy raw `CABROT` loading when
-  the schema changes.
+- **A/B state work is not realtime-safe or sample-accurate automation.** The
+  selector is therefore a non-automatable meta parameter. UI clicks perform
+  the locked deep-copy and `replaceState` synchronously on the message thread;
+  a 60 Hz processor timer is only a fallback for non-automated external
+  writes. An odd/even generation guard makes the audio thread retain its last
+  coherent DSP snapshot until replacement finishes. Presets use a strict
+  version 2 wrapper with detached trees; keep legacy raw `CABROT` loading.
+- **A/B is an undo boundary.** JUCE's `replaceState` clears the attached
+  `UndoManager`, so knob-edit undo history does not span an A/B comparison.
+  Treat that as an explicit current tradeoff unless snapshot application is
+  redesigned as a parameter transaction.
 - **`PrintWindow` flag 2** is required on JUCE 8 (Direct2D). Flag 0 returns black. `tools/visual-diff.ps1` already uses flag 2.
 - **Benchmarking a plugin over one long buffer measures the wrong thing.** The first CPU test here streamed 30 seconds of audio (11.5 MB) in a single pass and read 3 to 7% with wild run-to-run variance. That is memory bandwidth, not the plugin: a real host hands over 512 samples at a time out of warm cache. Timing the best of nine passes over a 2-second cache-resident buffer gives 2.6% and repeats to within 0.05%. Same code, same flags. If a CPU figure here ever looks alarming, check the harness before optimising anything.
 - **The test targets did not link LTO** while the plugin target did, so the benchmark was measuring a slower binary than the one that ships. `juce::juce_recommended_lto_flags` is on all three test targets now. Keep it that way when adding a target.
@@ -333,6 +348,7 @@ cab-rot-2/
 ├── Source/
 │   ├── PluginProcessor.{h,cpp}     # APVTS, DSP, telemetry, Delta, A/B persistence
 │   ├── PluginEditor.{h,cpp}        # regions, attachments, one 30 Hz telemetry poll
+│   ├── DSP/ModeConfig.h             # provisional six-profile derivative table
 │   ├── Theme/
 │   │   ├── Palette.h               # hand-maintained DPD colour tokens
 │   │   ├── Fonts.{h,cpp}           # SpinLock-guarded typeface cache + 5 typography slots
@@ -349,7 +365,7 @@ cab-rot-2/
 │       └── ThemeTestApp.cpp        # JUCEApplication entry for ThemeTest
 ├── tests/
 │   ├── passthrough_test.cpp        # fast transparency gate
-│   └── dsp_test.cpp                # DSP, telemetry, Delta, A/B, CPU gate
+│   └── dsp_test.cpp                # DSP, modes, telemetry, Delta, A/B, CPU gate
 └── tools/
     ├── compare-pngs.py             # PIL-based image diff with ImageMagick fallback
     ├── visual-diff.ps1             # build / launch / capture / crop / optional diff
@@ -392,24 +408,27 @@ $env:CABROT_SKIP_CPU_BENCH='1'
 
 4. Preserve the untracked review prompt, UI fix spec, and `references/` unless
    David explicitly changes their disposition.
-5. The next implementation item after `ef092c7` is the provisional Phase 5
-   mode table and click-free sweep test. The buttons stay hidden until it is
-   real. After that, run the five-target Release build and capture default,
-   minimum, and maximum screenshots. David's ear check is still required
-   before calling the six profiles release-ready.
+5. The UI truth implementation baseline is `24fa790`. Re-run the two suites
+   before new work. David's ear check is still required before calling the six
+   profiles release-ready. Oversampling stays hidden until its DSP and latency
+   reporting exist.
 
 ---
 
 ## Changelog
 
-- **2026-08-10**: UI truth Tiers 1 and 2 on `fix/ui-truth`, through
-  `ef092c7`. Removed fabricated CPU, meters, Fizz, graph data, unconditional
+- **2026-08-10**: UI truth Tiers 1 through 3 on `fix/ui-truth`, through
+  `24fa790`. Removed fabricated CPU, meters, Fizz, graph data, unconditional
   LIVE motion, and permanent PROCESSING. Added one 30 Hz telemetry path for
   real reduction/Fizz/meters/CPU/status, correct-polarity Delta Listen, deep
   versioned A/B snapshots with legacy loading, and honest knob defaults,
-  percent units, and hover/drag emphasis. Mode and OS controls remain hidden.
-  Verified 3/3 passthrough and 33/33 DSP assertions with the CPU benchmark
-  skipped. Final five-target build and three-size screenshots remain pending.
+  percent units, and hover/drag emphasis. Added six provisional, smoothed mode
+  behaviors and revealed the grid. Hardened A/B as a synchronous,
+  non-automatable meta operation with coherent block reads. OS remains hidden.
+  The five-target Release build completed with 0 warnings and 0 errors.
+  Verified 3/3 passthrough and 37/37 DSP assertions with the CPU benchmark
+  skipped. Default/min/max screenshots passed visual inspection; David's mode
+  voicing check remains open.
 - **2026-08-10**: DPD brand facelift on `facelift-dpd`. The toxic Spectre Codex surface is gone: `Palette.h` is hand-maintained from the DPD brand kit, `tools/oklch-to-srgb.py` and the Stitch reference/tooling are deleted, every atom and region is flat monochrome with hairline geometry, THE CRYPT button is deleted, and the header reads DEAD PIXEL HARMONIX. This visual pass still contained placeholder telemetry and dead controls; its old spectral and footer descriptions are superseded by the UI truth entry above. Both suites passed at the historical 3/3 and 12/12 counts. `design/FACELIFT-REPORT.md` remains the rule-by-rule visual map.
 - **2026-08-07** — Phase 4 DSP MVP built and measured on the Windows machine. First build of this repo on `wretc`; the Mac-era source compiled with 0 warnings and 0 errors once the CMake path was pointed at VS 2022 instead of the incomplete VS 18 install. `Source/DSP/` created (Tuning, InputTrim, BandSplitter, TransientDetector, DynamicReducer, ReapMixer), processBlock wired, `juce_dsp` added to the link lines. Two test executables replace the retired Phase 0 null test. Found and documented a genuine conflict between the locked LR crossover and Gate 4's first checkbox. The plugin makes sound and has never been heard by anyone.
 - **2026-05-05**: Initial handoff written (Phase 0 ready to start).

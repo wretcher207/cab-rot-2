@@ -4,22 +4,24 @@
 
 A focused dynamic harshness controller for high-gain amp-sim guitars. Removes
 2 kHz to 12 kHz fizz without neutering pick attack, using four-band detection
-and transient-protected reduction. Six amp-profile modes are planned, but their
-buttons stay hidden until they change the audio.
+and transient-protected reduction. Six provisional amp-profile modes now alter
+the DSP and switch with 300 ms derivative ramps.
 
 Dead Pixel Harmonix. JUCE 8 / VST3 / Standalone.
 
 ## Status
 
-Phase 4 DSP and the Tier 2 UI truth pass are implemented. The verified baseline
-through `ef092c7` has real reduction telemetry, Fizz amount, peak meters, CPU,
+Phase 4 DSP and the Tier 3 UI truth pass are implemented. The verified baseline
+through `24fa790` has real reduction telemetry, Fizz amount, peak meters, CPU,
 LIVE and footer state; working Delta Listen and A/B snapshots; honest knob
-defaults and units; and no fake spectrum. Passthrough is 3/3 and the DSP suite
-is 33/33 with the machine-dependent CPU benchmark skipped.
+defaults and units; six real provisional modes; and no fake spectrum.
+Passthrough is 3/3 and the DSP suite is 37/37 with the machine-dependent CPU
+benchmark skipped. The five-target Release build is clean at 0 warnings and 0
+errors.
 
-The provisional mode system is the next implementation gate. Oversampling and
-its control remain deferred. Final default, minimum, and maximum UI screenshots
-have not been approved yet.
+The mode voicings still need David's by-ear approval. Oversampling and its
+control remain deferred. Current default, minimum, and maximum UI captures are
+in `design/screenshots/ui-truth-final-*.png` (gitignored build evidence).
 
 ## Start here
 

@@ -6,6 +6,13 @@
 **UI reference**: `cab-rot/design/CANONICAL-UI.md` (rewritten for the DPD brand facelift, 2026-08-10). The original Stitch export lived in `design/stitch-reference.html`; that direction is cancelled and the file is deleted (git history keeps it).
 **Build target**: VST3 + AU, JUCE 8.x, Windows 11 first / macOS later
 
+> **Current-authority note (2026-08-10):** This file preserves the original
+> phase history, including placeholder tasks that are no longer valid.
+> `design/UI-FIX-SPEC.md` governs data truth, `design/CANONICAL-UI.md` governs
+> the shipped screen, and `HANDOFF.md` records the verified implementation.
+> Never restore a placeholder, decorative telemetry, or dead control from an
+> older phase below.
+
 ---
 
 ## Context
@@ -20,14 +27,16 @@ Each phase below ends with a **Self-Review Gate**. Do not start the next phase u
 
 ## Stitch UI vs Spec — Gap Resolutions (locked 2026-05-05)
 
-The Stitch export and the source spec disagreed on six points. Resolutions locked below — these override both the spec and the Stitch export wherever they conflict. Phase 1's `design/CANONICAL-UI.md` will codify these in detail with measurements; this table is the authority for now.
+The Stitch export and the source spec disagreed on six points. This table
+records the original resolutions plus current UI-truth corrections. The
+current authorities are the documents named in the note above.
 
 | # | Issue | Resolution |
 |---|---|---|
 | 1 | **Main controls count** | **6 knobs** in bottom row, evenly spaced: Fizz Hunt, Edge Preserve, Cab Smooth, Digital Sand, Air Rot, **Reap Mix**. Reap Mix added per spec. |
 | 2 | **Oversampling values** | **Off / 2x / 4x.** Drops 8x. Default = Off. |
-| 3 | **Delta Listen toggle** | **Ghost icon in header**, replaces Stitch's `sensors` icon. Click toggles. Glows red (`destructive` token) when active. |
-| 4 | **Wasp Meter labels** | **BITE / PLASTIC / WASP / SAND / AIR / ICE** between 2 kHz and 12 kHz. Two label rows: numeric frequencies on top, named zones below. Recommended resolution adopted, no contest. |
+| 3 | **Delta Listen toggle** | **Ghost icon in header**, replaces Stitch's `sensors` icon. Click toggles. Active is `inkPrimary`; it never glows. |
+| 4 | **Wasp Meter labels** | **BITE / PLASTIC / WASP / ICE** on the four real 2.4-12 kHz processed bands. Six numeric ticks remain, plotted logarithmically from 1-20 kHz. Superseded by the UI truth pass. |
 | 5 | **Stereo Link control** | Lives in **The Crypt** advanced panel as `Stereo Behavior` (Linked / Partial / Dual Mono). Recommended resolution adopted, no contest. |
 | 6 | **Window resizing** | **Continuous resize**, aspect-locked at 1.54:1. Min 1000×650, default 1200×780, max 1600×1040. |
 
