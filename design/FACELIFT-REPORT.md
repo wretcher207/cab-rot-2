@@ -24,9 +24,10 @@ Rule: near-black monochrome, the ten-token set, no other colour anywhere.
 - Damage threshold set at 12 dB and documented at definition site:
   `Source/Theme/Palette.h:38-41` (`kReductionDamageThresholdDb = 12.0f`,
   scale max 24 dB).
-- Every Stitch green deleted. Verified: `grep -rni "40FF2F\|0FE605\|54FF00\|
-  SpaceGrotesk" .` returns nothing outside `.git` and `design/sunder`
-  (build directory included in the scan).
+- Every Stitch green deleted. Verified with the banned-token grep from
+  the facelift brief (the three legacy neon-greens plus the retired
+  display-face name): it returns nothing outside `.git` and
+  `design/sunder`, build directory included in the scan.
 - `Palette.h` banner now points at the brand kit instead of the retired
   generator: `Source/Theme/Palette.h:1-15`. `tools/oklch-to-srgb.py`
   deleted; no build step or test ever called it (verified by grep over
