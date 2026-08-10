@@ -1,4 +1,4 @@
-# Cab Rot — Canonical UI
+# Cab Rot: Canonical UI
 
 **Status**: rewritten 2026-08-10 for the Dead Pixel Design facelift. Layout
 geometry, region sizes, spacing and component dimensions below remain
