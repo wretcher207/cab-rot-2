@@ -30,5 +30,4 @@ in `design/screenshots/ui-truth-final-*.png` (gitignored build evidence).
 - [HANDOFF.md](HANDOFF.md): onboarding, locked decisions, current state, first commands
 - [PLAN.md](PLAN.md): 11-phase build plan with self-review gates, architecture, risk register
 - [design/CANONICAL-UI.md](design/CANONICAL-UI.md): current geometry, visual system, and truthful component states
-- [design/UI-FIX-SPEC.md](design/UI-FIX-SPEC.md): adversarial UI findings and implementation gates
 - Original product spec: `c:\Users\david\workspace\second-mind\wiki\sources\2026-05-05-cab-rot-plugin-spec.md`

@@ -6,10 +6,7 @@ Tagline: "Kill the wasp nest. Keep the teeth." | Label: Dead Pixel Harmonix
 ## Read first
 - `PLAN.md`: 11-phase build plan with Self-Review Gates
 - `HANDOFF.md`: locked decisions, authority order, cold-start brief
-- `design/CANONICAL-UI.md`: UI spec and reference
-- `design/UI-FIX-SPEC.md`: governing UI truth pass. It wins where older phase
-  notes or the canonical document describe placeholder data or unavailable
-  controls.
+- `design/CANONICAL-UI.md`: current UI spec, data-truth rules, and reference
 
 ## Current status
 See HANDOFF.md for the current branch, verified baseline, and next gate. The
@@ -52,8 +49,8 @@ is now dead. So is the Sunder amber rebrand in `design/sunder/`, and the copper
 and knurled-hardware direction in `visual-upgrade-1.md`. All three are kept for
 history. If you find the old Spectre neon greens in a design here, it is
 wrong. `design/CANONICAL-UI.md` is authoritative for the current layout and
-visual system, with `design/UI-FIX-SPEC.md` taking priority for data truth and
-control availability.
+visual system, data truth, and control availability. `HANDOFF.md` records the
+verified implementation state.
 
 ## Key files
 - `CMakeLists.txt`: build config

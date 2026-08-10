@@ -6,8 +6,8 @@ facelift of the plugin UI. DSP, `PluginProcessor.cpp`, `Source/DSP/`, and
 
 This is a historical report for the visual-only facelift. Its old telemetry
 and control-availability notes were superseded by the UI truth work through
-`24fa790`. `design/CANONICAL-UI.md`, `design/UI-FIX-SPEC.md`, and `HANDOFF.md`
-describe the current product.
+`24fa790`. `design/CANONICAL-UI.md` and `HANDOFF.md` describe the current
+product.
 
 ## Binding document
 

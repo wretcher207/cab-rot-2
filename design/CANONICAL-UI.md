@@ -6,10 +6,9 @@ authoritative. All colour, radius and typography rules match the DPD brand kit
 (`dead-pixel-design-v4/brand-kit/AI-BRAND-BRIEF.md`), which is the binding
 document for anything visual.
 
-`design/UI-FIX-SPEC.md` governs data truth and control availability. If a
-control or instrument is not backed by the current DSP, it stays hidden. No
-placeholder telemetry, decorative activity, or fabricated graph data is
-permitted.
+This document also governs data truth and control availability. If a control
+or instrument is not backed by the current DSP, it stays hidden. No placeholder
+telemetry, decorative activity, or fabricated graph data is permitted.
 
 The Stitch export was the visual reference the old toxic design was ported
 from. It is deleted; git history keeps it. Nothing in this document

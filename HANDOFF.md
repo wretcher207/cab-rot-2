@@ -185,11 +185,12 @@ The pluginval mention in the risk register: start running pluginval continuously
 
 ### 2026-08-10 UI-truth baseline
 
-- `fix/ui-truth` is local with no upstream. The verified implementation
+- `fix/ui-truth` tracks `origin/fix/ui-truth`. The verified implementation
   baseline is `24fa790`; `main` and `origin/main` are still `17caba9`.
 - The adversarial review prompt, `design/UI-FIX-SPEC.md`, and `references/`
-  are intentionally untracked source material. Preserve them unless David
-  explicitly chooses to add them.
+  are intentionally untracked local source material. The tracked canonical UI
+  and handoff documents contain the resulting rules, so remote docs do not
+  depend on that packet. Preserve it unless David explicitly chooses to add it.
 - UI telemetry is one editor-owned 30 Hz poll. It consumes real per-host-block
   reduction maxima, post-trim input/output peaks, measured CPU, and recent
   input activity. It drives the log-axis columns and peaks, Fizz, meters, LIVE,
@@ -393,9 +394,9 @@ The Crypt advanced parameters are declared in APVTS but the UI lands in Phase 8.
 ## How to boot a new session
 
 1. Read this file end-to-end first.
-2. Read [design/UI-FIX-SPEC.md](design/UI-FIX-SPEC.md), then the relevant
-   sections of [design/CANONICAL-UI.md](design/CANONICAL-UI.md) and
-   [PLAN.md](PLAN.md). UI-FIX wins over older placeholder or phase notes.
+2. Read [design/CANONICAL-UI.md](design/CANONICAL-UI.md), then the relevant
+   sections of [PLAN.md](PLAN.md). This handoff and the canonical UI document
+   win over older placeholder or phase notes.
 3. Run a quick state and gate check:
 
 ```powershell

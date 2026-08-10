@@ -8,8 +8,8 @@
 
 > **Current-authority note (2026-08-10):** This file preserves the original
 > phase history, including placeholder tasks that are no longer valid.
-> `design/UI-FIX-SPEC.md` governs data truth, `design/CANONICAL-UI.md` governs
-> the shipped screen, and `HANDOFF.md` records the verified implementation.
+> `design/CANONICAL-UI.md` governs the shipped screen, data truth, and control
+> availability. `HANDOFF.md` records the verified implementation.
 > Never restore a placeholder, decorative telemetry, or dead control from an
 > older phase below.
 
