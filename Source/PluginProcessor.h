@@ -3,6 +3,7 @@
 #include "DSP/BandSplitter.h"
 #include "DSP/DynamicReducer.h"
 #include "DSP/InputTrim.h"
+#include "DSP/ModeConfig.h"
 #include "DSP/ReapMixer.h"
 #include "DSP/TransientDetector.h"
 #include "DSP/Tuning.h"
@@ -119,7 +120,8 @@ private:
         float outputPeak { 0.0f };
     };
 
-    void updateDspParameters() noexcept;
+    void initialiseModeSmoothing (double sampleRate) noexcept;
+    void updateDspParameters (int numSamples) noexcept;
     void processChunk (juce::AudioBuffer<float>& block, int numChannels,
                        int numSamples, bool listenToRemoved,
                        BlockTelemetry& telemetry) noexcept;
@@ -150,6 +152,14 @@ private:
     std::array<dsp::TransientDetector, numProcessedBands> detectors;
     std::array<dsp::DynamicReducer,    numProcessedBands> reducers;
 
+    // The mode table changes derivative targets, not user parameters. A slow
+    // 300 ms ramp keeps profile automation free of block-edge discontinuities.
+    juce::SmoothedValue<float> modeThresholdOffsetDb;
+    std::array<juce::SmoothedValue<float>, numProcessedBands> modeCeilingScale;
+    juce::SmoothedValue<float> modeAttackScale;
+    juce::SmoothedValue<float> modeEdgeBias;
+    juce::SmoothedValue<float> modeShelfStart;
+
     std::array<juce::AudioBuffer<float>, dsp::BandSplitter::numBands> bandBuffers;
     juce::AudioBuffer<float> deltaBuffer;
     std::vector<float>       gateScratch;
@@ -178,6 +188,7 @@ private:
         std::atomic<float>* inputGain     {};
         std::atomic<float>* outputGain    {};
         std::atomic<float>* deltaListen   {};
+        std::atomic<float>* mode          {};
         std::atomic<float>* stereoLink    {};
         std::atomic<float>* clampSpeed    {};
         std::atomic<float>* maxReapDb     {};

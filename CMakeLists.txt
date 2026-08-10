@@ -139,6 +139,7 @@ set(CABROT_UI_REGIONS
 
 set(CABROT_DSP_SOURCES
     Source/DSP/Tuning.h
+    Source/DSP/ModeConfig.h
     Source/DSP/InputTrim.h
     Source/DSP/InputTrim.cpp
     Source/DSP/BandSplitter.h

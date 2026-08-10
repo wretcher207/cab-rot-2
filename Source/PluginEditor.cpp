@@ -40,7 +40,6 @@ CabRotEditor::CabRotEditor (CabRotProcessor& p)
     addAndMakeVisible (waspMeter);
     addAndMakeVisible (fizzReadout);
     addAndMakeVisible (ampProfile);
-    ampProfile.setVisible (false);
     addAndMakeVisible (knobRow);
     addAndMakeVisible (footerBar);
 

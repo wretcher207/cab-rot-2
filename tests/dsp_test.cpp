@@ -9,6 +9,7 @@
 #include "TestSupport.h"
 
 #include <chrono>
+#include <limits>
 
 using namespace cabrot;
 using namespace cabrot::test;
@@ -317,7 +318,155 @@ void testNoZipperNoise (Report& report)
 }
 
 // --------------------------------------------------------------------------
-// 6. Every sample rate the plan names.
+// 6. Provisional amp profiles must be real, distinct, and safe to automate.
+// --------------------------------------------------------------------------
+void testModeProfiles (Report& report)
+{
+    constexpr double sr = 48000.0;
+    constexpr int renderLength = 48000;
+
+    juce::AudioBuffer<float> source (2, renderLength);
+    PinkNoise noise;
+    for (int ch = 0; ch < source.getNumChannels(); ++ch)
+        for (int n = 0; n < source.getNumSamples(); ++n)
+            source.setSample (ch, n, noise.next() * 0.25f);
+
+    const auto renderMode = [&] (int modeIndex, bool working)
+    {
+        CabRotProcessor processor;
+        setParam (processor, params::mode, static_cast<float> (modeIndex));
+        prepareStereo (processor, sr, kDefaultBlockSize);
+        setNeutral (processor);
+
+        if (working)
+        {
+            setParam (processor, params::fizzHunt,     100.0f);
+            setParam (processor, params::edgePreserve,  55.0f);
+            setParam (processor, params::cabSmooth,     85.0f);
+            setParam (processor, params::digitalSand,   95.0f);
+            setParam (processor, params::airRot,         90.0f);
+            setParam (processor, params::maxReapDb,      12.0f);
+            setParam (processor, params::clampSpeed,      5.0f);
+        }
+
+        setParam (processor, params::reapMix, 100.0f);
+        warmUp (processor, sr, kDefaultBlockSize, 400.0f);
+
+        juce::AudioBuffer<float> rendered;
+        rendered.makeCopyOf (source);
+        runInPlace (processor, rendered, kDefaultBlockSize);
+        return rendered;
+    };
+
+    // Mode derivatives must never defeat the reducer's exact-zero short path.
+    CabRotProcessor dryProcessor;
+    prepareStereo (dryProcessor, sr, kDefaultBlockSize);
+    setNeutral (dryProcessor);
+    warmUp (dryProcessor, sr, kDefaultBlockSize, 400.0f);
+    juce::AudioBuffer<float> dry;
+    dry.makeCopyOf (source);
+    runInPlace (dryProcessor, dry, kDefaultBlockSize);
+
+    float zeroModeDifference = 0.0f;
+    for (int modeIndex = 0; modeIndex < dsp::kNumModeConfigs; ++modeIndex)
+    {
+        const auto zeroMode = renderMode (modeIndex, false);
+        for (int ch = 0; ch < dry.getNumChannels(); ++ch)
+            for (int n = 0; n < dry.getNumSamples(); ++n)
+                zeroModeDifference = juce::jmax (
+                    zeroModeDifference,
+                    std::abs (zeroMode.getSample (ch, n) - dry.getSample (ch, n)));
+    }
+
+    report.check (zeroModeDifference == 0.0f,
+                  "all six modes remain bit-exact no-op with reduction knobs at zero");
+
+    std::array<juce::AudioBuffer<float>, dsp::kNumModeConfigs> renderedModes;
+    for (int modeIndex = 0; modeIndex < dsp::kNumModeConfigs; ++modeIndex)
+        renderedModes[(size_t) modeIndex] = renderMode (modeIndex, true);
+
+    float smallestPairDifference = std::numeric_limits<float>::max();
+    for (int first = 0; first < dsp::kNumModeConfigs; ++first)
+    {
+        for (int second = first + 1; second < dsp::kNumModeConfigs; ++second)
+        {
+            float pairDifference = 0.0f;
+            for (int ch = 0; ch < source.getNumChannels(); ++ch)
+                for (int n = 0; n < source.getNumSamples(); ++n)
+                    pairDifference = juce::jmax (
+                        pairDifference,
+                        std::abs (renderedModes[(size_t) first].getSample (ch, n)
+                                  - renderedModes[(size_t) second].getSample (ch, n)));
+
+            smallestPairDifference = juce::jmin (smallestPairDifference, pairDifference);
+        }
+    }
+
+    report.check (smallestPairDifference > 1.0e-4f,
+                  "all six provisional modes produce distinct settled output");
+    report.note ("closest mode pair differs by "
+                 + juce::String (smallestPairDifference, 6));
+
+    // Change modes halfway through a continuous WASP-band tone. The profile
+    // derivatives ramp for 300 ms, so the switch cannot create a block-edge
+    // step even though the parameter itself changes immediately.
+    constexpr int slewLength = 48000 * 2;
+    constexpr int switchOffset = slewLength / 2;
+    juce::AudioBuffer<float> sweep (2, slewLength);
+    for (int n = 0; n < slewLength; ++n)
+    {
+        const float sample = 0.4f * std::sin (
+            juce::MathConstants<float>::twoPi * 6200.0f * static_cast<float> (n)
+            / static_cast<float> (sr));
+        sweep.setSample (0, n, sample);
+        sweep.setSample (1, n, sample);
+    }
+
+    float inputSlew = 0.0f;
+    for (int n = 1; n < slewLength; ++n)
+        inputSlew = juce::jmax (inputSlew,
+                                std::abs (sweep.getSample (0, n) - sweep.getSample (0, n - 1)));
+
+    CabRotProcessor switchingProcessor;
+    prepareStereo (switchingProcessor, sr, kDefaultBlockSize);
+    setNeutral (switchingProcessor);
+    setParam (switchingProcessor, params::fizzHunt,    100.0f);
+    setParam (switchingProcessor, params::cabSmooth,   100.0f);
+    setParam (switchingProcessor, params::digitalSand, 100.0f);
+    setParam (switchingProcessor, params::airRot,      100.0f);
+    setParam (switchingProcessor, params::reapMix,     100.0f);
+    setParam (switchingProcessor, params::maxReapDb,    12.0f);
+    warmUp (switchingProcessor, sr, kDefaultBlockSize, 400.0f);
+
+    juce::MidiBuffer midi;
+    bool switched = false;
+    for (int offset = 0; offset < slewLength; offset += kDefaultBlockSize)
+    {
+        if (! switched && offset >= switchOffset)
+        {
+            setParam (switchingProcessor, params::mode, 5.0f);
+            switched = true;
+        }
+
+        const int chunk = juce::jmin (kDefaultBlockSize, slewLength - offset);
+        juce::AudioBuffer<float> slice (sweep.getArrayOfWritePointers(), 2, offset, chunk);
+        switchingProcessor.processBlock (slice, midi);
+    }
+
+    float outputSlew = 0.0f;
+    for (int n = 1; n < slewLength; ++n)
+        outputSlew = juce::jmax (outputSlew,
+                                 std::abs (sweep.getSample (0, n) - sweep.getSample (0, n - 1)));
+
+    const float slewRatio = outputSlew / juce::jmax (1.0e-9f, inputSlew);
+    report.check (allFinite (sweep) && slewRatio < 1.25f,
+                  "mode change mid-stream adds no click or step discontinuity");
+    report.note ("mode-switch output slew is " + juce::String (slewRatio, 3)
+                 + "x the input's");
+}
+
+// --------------------------------------------------------------------------
+// 7. Every sample rate the plan names.
 // --------------------------------------------------------------------------
 void testSampleRates (Report& report)
 {
@@ -733,6 +882,7 @@ int main()
         testFizzAttenuation (report);
         testTransientPreservation (report);
         testNoZipperNoise (report);
+        testModeProfiles (report);
         testSampleRates (report);
         testBlockSizes (report);
         testDenormalsFlush (report);

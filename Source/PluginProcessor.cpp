@@ -9,6 +9,7 @@ namespace
 {
 constexpr float kEngineLiveThresholdDb = -72.0f;
 constexpr double kEngineLiveHoldSeconds = 1.0;
+constexpr double kModeRampSeconds = 0.300;
 
 const juce::Identifier kPluginStateType { "CABROT_PLUGIN_STATE" };
 const juce::Identifier kSlotAType       { "CABROT_SLOT_A" };
@@ -175,6 +176,7 @@ CabRotProcessor::CabRotProcessor()
     p.inputGain    = apvts.getRawParameterValue (params::inputGain);
     p.outputGain   = apvts.getRawParameterValue (params::outputGain);
     p.deltaListen  = apvts.getRawParameterValue (params::deltaListen);
+    p.mode         = apvts.getRawParameterValue (params::mode);
     p.stereoLink   = apvts.getRawParameterValue (params::stereoLink);
     p.clampSpeed   = apvts.getRawParameterValue (params::clampSpeed);
     p.maxReapDb    = apvts.getRawParameterValue (params::maxReapDb);
@@ -328,7 +330,8 @@ void CabRotProcessor::prepareToPlay (double sampleRate, int maximumExpectedSampl
 
     gateScratch.assign ((size_t) preparedBlockSize, 0.0f);
 
-    updateDspParameters();
+    initialiseModeSmoothing (sampleRate);
+    updateDspParameters (0);
     inputStage .snapToTarget();
     outputStage.snapToTarget();
     mixer.reset();
@@ -414,7 +417,35 @@ void CabRotProcessor::discardUiPeakTelemetry() noexcept
     uiOutputPeak.exchange (0.0f, std::memory_order_relaxed);
 }
 
-void CabRotProcessor::updateDspParameters() noexcept
+void CabRotProcessor::initialiseModeSmoothing (double sampleRate) noexcept
+{
+    const int modeIndex = juce::jlimit (0, dsp::kNumModeConfigs - 1,
+                                        juce::roundToInt (p.mode->load (std::memory_order_relaxed)));
+    const auto& mode = dsp::kModes[modeIndex];
+
+    const auto initialise = [sampleRate] (juce::SmoothedValue<float>& value,
+                                           float initialValue) noexcept
+    {
+        value.reset (sampleRate, kModeRampSeconds);
+        value.setCurrentAndTargetValue (initialValue);
+    };
+
+    initialise (modeThresholdOffsetDb, mode.thresholdOffsetDb);
+    initialise (modeAttackScale, mode.attackScale);
+    initialise (modeEdgeBias, mode.edgeBias);
+    initialise (modeShelfStart, mode.shelfStart);
+
+    for (int i = 0; i < numProcessedBands; ++i)
+    {
+        const float scale = modeIndex == dsp::kHm2ModeIndex
+                         && i == dsp::kWaspProcessedBandIndex
+            ? dsp::kHm2WaspCeilingScale
+            : mode.ceilingScale;
+        initialise (modeCeilingScale[(size_t) i], scale);
+    }
+}
+
+void CabRotProcessor::updateDspParameters (int numSamples) noexcept
 {
     using namespace dsp::tuning;
 
@@ -435,6 +466,34 @@ void CabRotProcessor::updateDspParameters() noexcept
     const float air     = lift (norm (p.airRot));
     const float mixAmt  = lift (norm (p.reapMix));
 
+    const int modeIndex = juce::jlimit (0, dsp::kNumModeConfigs - 1,
+                                        juce::roundToInt (p.mode->load (std::memory_order_relaxed)));
+    const auto& mode = dsp::kModes[modeIndex];
+
+    modeThresholdOffsetDb.setTargetValue (mode.thresholdOffsetDb);
+    modeAttackScale.setTargetValue (mode.attackScale);
+    modeEdgeBias.setTargetValue (mode.edgeBias);
+    modeShelfStart.setTargetValue (mode.shelfStart);
+
+    for (int i = 0; i < numProcessedBands; ++i)
+    {
+        const float scale = modeIndex == dsp::kHm2ModeIndex
+                         && i == dsp::kWaspProcessedBandIndex
+            ? dsp::kHm2WaspCeilingScale
+            : mode.ceilingScale;
+        modeCeilingScale[(size_t) i].setTargetValue (scale);
+    }
+
+    const auto advance = [numSamples] (juce::SmoothedValue<float>& value) noexcept
+    {
+        return numSamples > 0 ? value.skip (numSamples) : value.getCurrentValue();
+    };
+
+    const float thresholdOffsetDb = advance (modeThresholdOffsetDb);
+    const float attackScale = advance (modeAttackScale);
+    const float edgeBias = advance (modeEdgeBias);
+    const float shelfStart = advance (modeShelfStart);
+
     const float ceilingDb  = p.maxReapDb ->load (std::memory_order_relaxed);
     const float attackMs   = p.clampSpeed->load (std::memory_order_relaxed);
     const float windowMs   = p.pickWindow->load (std::memory_order_relaxed);
@@ -445,7 +504,8 @@ void CabRotProcessor::updateDspParameters() noexcept
     const float link = (linkChoice == 0) ? 1.0f : (linkChoice == 1 ? 0.5f : 0.0f);
 
     const float thresholdDb = kThresholdAtZeroDb
-                            + fizz * (kThresholdAtHundredDb - kThresholdAtZeroDb);
+                            + fizz * (kThresholdAtHundredDb - kThresholdAtZeroDb)
+                            + thresholdOffsetDb;
 
     // Knob to band, per PLAN.md's mapping. Order is BITE, PLASTIC, WASP, ICE.
     const float bandAmount[numProcessedBands] = { smooth, sand, sand, air };
@@ -454,20 +514,21 @@ void CabRotProcessor::updateDspParameters() noexcept
     {
         auto& reducer = reducers[(size_t) i];
         reducer.setThresholdDb (thresholdDb);
-        reducer.setMaxReductionDb (bandAmount[i] * ceilingDb);
+        reducer.setMaxReductionDb (bandAmount[i] * ceilingDb
+                                   * advance (modeCeilingScale[(size_t) i]));
         reducer.setStereoLink (link);
-        reducer.setAttackMs (attackMs);
+        reducer.setAttackMs (attackMs * attackScale);
         reducer.setStaticTrimDb (0.0f);
 
         auto& detector = detectors[(size_t) i];
-        detector.setEdgePreserve (edge);
+        detector.setEdgePreserve (juce::jlimit (0.0f, 1.0f, edge + edgeBias));
         detector.setPickWindowMs (windowMs);
     }
 
     // Air Rot's shelf, on the ICE band only, engaging over the top half of
     // the knob so the midpoint stays honest.
-    const float shelfDrive = juce::jmax (0.0f, (air - kAirRotShelfStart))
-                           / juce::jmax (1.0e-6f, 1.0f - kAirRotShelfStart);
+    const float shelfDrive = juce::jmax (0.0f, air - shelfStart)
+                           / juce::jmax (1.0e-6f, 1.0f - shelfStart);
     reducers[numProcessedBands - 1].setStaticTrimDb (-shelfDrive * kAirRotShelfMaxCutDb);
 
     inputStage .setGainDb (p.inputGain ->load (std::memory_order_relaxed));
@@ -508,7 +569,7 @@ void CabRotProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         return;
 
     const auto startedAt = juce::Time::getHighResolutionTicks();
-    updateDspParameters();
+    updateDspParameters (numSamples);
     const bool listenToRemoved = p.deltaListen->load (std::memory_order_relaxed) >= 0.5f;
     BlockTelemetry telemetry;
 
