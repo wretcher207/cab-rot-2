@@ -12,6 +12,12 @@ FizzReadout::FizzReadout()
 
 void FizzReadout::setValue (std::optional<float> percent)
 {
+    if (percent.has_value())
+    {
+        const float clamped = juce::jlimit (0.0f, 100.0f, *percent);
+        percent = static_cast<float> (juce::roundToInt (clamped * 10.0f)) * 0.1f;
+    }
+
     if (! displayValue.has_value() && ! percent.has_value())
         return;
 
