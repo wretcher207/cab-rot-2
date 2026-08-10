@@ -265,6 +265,7 @@ if(CABROT_BUILD_TESTS)
         PRIVATE
             JUCE_WEB_BROWSER=0
             JUCE_USE_CURL=0
+            JUCE_MODAL_LOOPS_PERMITTED=1
             JUCE_STANDALONE_APPLICATION=1)
 
     target_link_libraries(CabRot_DspTest

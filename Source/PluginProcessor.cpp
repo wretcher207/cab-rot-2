@@ -10,6 +10,58 @@ namespace
 constexpr float kEngineLiveThresholdDb = -72.0f;
 constexpr double kEngineLiveHoldSeconds = 1.0;
 
+const juce::Identifier kPluginStateType { "CABROT_PLUGIN_STATE" };
+const juce::Identifier kSlotAType       { "CABROT_SLOT_A" };
+const juce::Identifier kSlotBType       { "CABROT_SLOT_B" };
+const juce::Identifier kFormatVersion   { "formatVersion" };
+const juce::Identifier kActiveSlot      { "activeSlot" };
+constexpr int kPluginStateFormatVersion = 2;
+
+bool readWrappedSlot (const juce::ValueTree& root,
+                      const juce::Identifier& wrapperType,
+                      const juce::Identifier& payloadType,
+                      juce::ValueTree& result)
+{
+    juce::ValueTree wrapper;
+    int wrapperCount = 0;
+
+    for (const auto& child : root)
+    {
+        if (child.hasType (wrapperType))
+        {
+            wrapper = child;
+            ++wrapperCount;
+        }
+    }
+
+    if (wrapperCount != 1 || wrapper.getNumChildren() > 1)
+        return false;
+
+    if (wrapper.getNumChildren() == 0)
+    {
+        result = {};
+        return true;
+    }
+
+    const auto payload = wrapper.getChild (0);
+    if (! payload.hasType (payloadType))
+        return false;
+
+    result = payload.createCopy();
+    return true;
+}
+
+void appendWrappedSlot (juce::ValueTree& root,
+                        const juce::Identifier& wrapperType,
+                        const juce::ValueTree& payload)
+{
+    juce::ValueTree wrapper (wrapperType);
+    if (payload.isValid())
+        wrapper.appendChild (payload.createCopy(), nullptr);
+
+    root.appendChild (wrapper, nullptr);
+}
+
 void publishMaximum (std::atomic<float>& mailbox, float value) noexcept
 {
     auto current = mailbox.load (std::memory_order_relaxed);
@@ -134,6 +186,118 @@ CabRotProcessor::CabRotProcessor()
 
     for (auto& value : uiBandReductionMax)
         value.store (0.0f, std::memory_order_relaxed);
+
+    apvts.addParameterListener (params::aOrB, this);
+    startTimerHz (60);
+}
+
+CabRotProcessor::~CabRotProcessor()
+{
+    stopTimer();
+    apvts.removeParameterListener (params::aOrB, this);
+}
+
+void CabRotProcessor::parameterChanged (const juce::String& parameterId, float newValue)
+{
+    if (parameterId != params::aOrB)
+        return;
+
+    const int requested = newValue >= 0.5f ? 1 : 0;
+    if (requested == applyingAbSlot.load (std::memory_order_acquire))
+        return;
+
+    // APVTS listeners may run on the audio thread. The timer performs the
+    // locking and ValueTree work later on the message thread.
+    pendingAbSlot.store (requested, std::memory_order_release);
+}
+
+void CabRotProcessor::timerCallback()
+{
+    const juce::ScopedLock lock (abStateLock);
+    const int requested = pendingAbSlot.exchange (-1, std::memory_order_acq_rel);
+
+    if (requested == 0 || requested == 1)
+        switchToSlotLocked (requested == 0 ? AbSlot::a : AbSlot::b);
+}
+
+juce::ValueTree& CabRotProcessor::slotTree (AbSlot slot) noexcept
+{
+    return slot == AbSlot::a ? slotStateA : slotStateB;
+}
+
+void CabRotProcessor::forceSlotMarker (juce::ValueTree& state, AbSlot slot)
+{
+    if (! state.isValid())
+        return;
+
+    const juce::Identifier paramType { "PARAM" };
+    const juce::Identifier idProperty { "id" };
+    const juce::Identifier valueProperty { "value" };
+    const float marker = slot == AbSlot::b ? 1.0f : 0.0f;
+
+    for (auto child : state)
+    {
+        if (child.hasType (paramType)
+            && child.getProperty (idProperty).toString() == params::aOrB)
+        {
+            child.setProperty (valueProperty, marker, nullptr);
+            return;
+        }
+    }
+
+    juce::ValueTree markerTree (paramType);
+    markerTree.setProperty (idProperty, params::aOrB, nullptr);
+    markerTree.setProperty (valueProperty, marker, nullptr);
+    state.appendChild (markerTree, nullptr);
+}
+
+CabRotProcessor::AbSlot CabRotProcessor::readSlotMarker (const juce::ValueTree& state)
+{
+    const juce::Identifier paramType { "PARAM" };
+    const juce::Identifier idProperty { "id" };
+    const juce::Identifier valueProperty { "value" };
+
+    for (const auto& child : state)
+    {
+        if (child.hasType (paramType)
+            && child.getProperty (idProperty).toString() == params::aOrB)
+        {
+            return static_cast<float> (child.getProperty (valueProperty, 0.0f)) >= 0.5f
+                ? AbSlot::b : AbSlot::a;
+        }
+    }
+
+    return AbSlot::a;
+}
+
+void CabRotProcessor::switchToSlotLocked (AbSlot target)
+{
+    const auto active = activeAbSlot.load (std::memory_order_acquire) == 1
+        ? AbSlot::b : AbSlot::a;
+
+    if (target == active)
+        return;
+
+    auto departing = apvts.copyState();
+    if (! departing.isValid())
+        return;
+
+    // The selector parameter changes before this callback. Put the departing
+    // slot's own marker back into its detached snapshot before storing it.
+    forceSlotMarker (departing, active);
+    slotTree (active) = departing.createCopy();
+
+    auto& arriving = slotTree (target);
+    if (! arriving.isValid())
+        arriving = departing.createCopy();
+
+    forceSlotMarker (arriving, target);
+
+    const int targetIndex = static_cast<int> (target);
+    applyingAbSlot.store (targetIndex, std::memory_order_release);
+    apvts.replaceState (arriving.createCopy());
+    activeAbSlot.store (targetIndex, std::memory_order_release);
+    applyingAbSlot.store (-1, std::memory_order_release);
 }
 
 void CabRotProcessor::prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock)
@@ -461,20 +625,129 @@ juce::AudioProcessorEditor* CabRotProcessor::createEditor()
 
 void CabRotProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (auto state = apvts.copyState(); state.isValid())
-    {
-        if (auto xml = state.createXml())
-            copyXmlToBinary (*xml, destData);
-    }
+    const juce::ScopedLock lock (abStateLock);
+    destData.reset();
+
+    const auto active = activeAbSlot.load (std::memory_order_acquire) == 1
+        ? AbSlot::b : AbSlot::a;
+    const int pending = pendingAbSlot.load (std::memory_order_acquire);
+    const auto selected = pending == 0 ? AbSlot::a
+                        : pending == 1 ? AbSlot::b
+                                       : active;
+
+    auto live = apvts.copyState();
+    if (! live.isValid())
+        return;
+
+    // If a selector write is awaiting the message-thread handoff, the live
+    // APVTS marker already names the destination even though the remaining
+    // values still belong to the departing slot.
+    forceSlotMarker (live, active);
+
+    auto aState = slotStateA.isValid() ? slotStateA.createCopy()
+                                       : juce::ValueTree {};
+    auto bState = slotStateB.isValid() ? slotStateB.createCopy()
+                                       : juce::ValueTree {};
+
+    auto& activeState = active == AbSlot::a ? aState : bState;
+    activeState = live.createCopy();
+
+    auto& selectedState = selected == AbSlot::a ? aState : bState;
+    if (! selectedState.isValid())
+        selectedState = live.createCopy();
+
+    if (aState.isValid())
+        forceSlotMarker (aState, AbSlot::a);
+    if (bState.isValid())
+        forceSlotMarker (bState, AbSlot::b);
+
+    juce::ValueTree state (kPluginStateType);
+    state.setProperty (kFormatVersion, kPluginStateFormatVersion, nullptr);
+    state.setProperty (kActiveSlot, static_cast<int> (selected), nullptr);
+    appendWrappedSlot (state, kSlotAType, aState);
+    appendWrappedSlot (state, kSlotBType, bState);
+
+    if (auto xml = state.createXml())
+        copyXmlToBinary (*xml, destData);
 }
 
 void CabRotProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    if (auto xml = getXmlFromBinary (data, sizeInBytes))
+    auto xml = getXmlFromBinary (data, sizeInBytes);
+    if (xml == nullptr)
+        return;
+
+    const auto decoded = juce::ValueTree::fromXml (*xml);
+    if (! decoded.isValid())
+        return;
+
+    juce::ValueTree loadedA, loadedB;
+    AbSlot selected = AbSlot::a;
+
+    if (decoded.hasType (apvts.state.getType()))
     {
-        if (xml->hasTagName (apvts.state.getType()))
-            apvts.replaceState (juce::ValueTree::fromXml (*xml));
+        // Pre-v2 presets contained one raw APVTS tree. Keep that tree in its
+        // selected slot; the other slot will clone it on first entry.
+        selected = readSlotMarker (decoded);
+        auto legacy = decoded.createCopy();
+        forceSlotMarker (legacy, selected);
+
+        if (selected == AbSlot::a)
+            loadedA = std::move (legacy);
+        else
+            loadedB = std::move (legacy);
     }
+    else if (decoded.hasType (kPluginStateType))
+    {
+        if (static_cast<int> (decoded.getProperty (kFormatVersion, 0))
+                != kPluginStateFormatVersion
+            || ! decoded.hasProperty (kActiveSlot)
+            || decoded.getNumChildren() != 2)
+        {
+            return;
+        }
+
+        const int selectedIndex = static_cast<int> (decoded.getProperty (kActiveSlot));
+        if (selectedIndex != 0 && selectedIndex != 1)
+            return;
+
+        if (! readWrappedSlot (decoded, kSlotAType, apvts.state.getType(), loadedA)
+            || ! readWrappedSlot (decoded, kSlotBType, apvts.state.getType(), loadedB))
+        {
+            return;
+        }
+
+        selected = selectedIndex == 0 ? AbSlot::a : AbSlot::b;
+    }
+    else
+    {
+        return;
+    }
+
+    auto& selectedState = selected == AbSlot::a ? loadedA : loadedB;
+    auto& otherState = selected == AbSlot::a ? loadedB : loadedA;
+
+    if (! selectedState.isValid() && otherState.isValid())
+        selectedState = otherState.createCopy();
+
+    if (! selectedState.isValid())
+        return;
+
+    if (loadedA.isValid())
+        forceSlotMarker (loadedA, AbSlot::a);
+    if (loadedB.isValid())
+        forceSlotMarker (loadedB, AbSlot::b);
+
+    const juce::ScopedLock lock (abStateLock);
+    const int selectedIndex = static_cast<int> (selected);
+
+    applyingAbSlot.store (selectedIndex, std::memory_order_release);
+    pendingAbSlot.store (-1, std::memory_order_release);
+    slotStateA = loadedA.isValid() ? loadedA.createCopy() : juce::ValueTree {};
+    slotStateB = loadedB.isValid() ? loadedB.createCopy() : juce::ValueTree {};
+    apvts.replaceState (selectedState.createCopy());
+    activeAbSlot.store (selectedIndex, std::memory_order_release);
+    applyingAbSlot.store (-1, std::memory_order_release);
 }
 } // namespace cabrot
 

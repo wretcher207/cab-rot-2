@@ -19,6 +19,31 @@ constexpr int kFftOrder = 13;               // 8192
 constexpr int kFftSize  = 1 << kFftOrder;
 constexpr int kAnalysisLength = kFftSize * 8;
 
+float getParamValue (CabRotProcessor& processor, const juce::String& id)
+{
+    if (const auto* value = processor.getApvts().getRawParameterValue (id))
+        return value->load (std::memory_order_relaxed);
+
+    return 0.0f;
+}
+
+bool pumpUntilSlot (CabRotProcessor& processor, int expectedSlot,
+                    double timeoutMs = 250.0)
+{
+    const double deadline = juce::Time::getMillisecondCounterHiRes() + timeoutMs;
+    auto* messages = juce::MessageManager::getInstance();
+
+    while (juce::Time::getMillisecondCounterHiRes() < deadline)
+    {
+        if (processor.getActiveAbSlot() == expectedSlot)
+            return true;
+
+        messages->runDispatchLoopUntil (5);
+    }
+
+    return processor.getActiveAbSlot() == expectedSlot;
+}
+
 // --------------------------------------------------------------------------
 // 1. Reconstruction. The band split must not colour the signal.
 // --------------------------------------------------------------------------
@@ -489,7 +514,130 @@ void testDeltaListen (Report& report)
 }
 
 // --------------------------------------------------------------------------
-// 11. CPU. One instance, stereo, 48 kHz, everything working hard.
+// 11. A/B must snapshot both parameter state and the processing it controls.
+// --------------------------------------------------------------------------
+void testAbSnapshots (Report& report)
+{
+    constexpr double sr = 48000.0;
+    constexpr int renderLength = 24000;
+
+    CabRotProcessor processor;
+    prepareStereo (processor, sr, kDefaultBlockSize);
+    setNeutral (processor);
+    setParam (processor, params::fizzHunt, 100.0f);
+    setParam (processor, params::reapMix, 100.0f);
+    setParam (processor, params::maxReapDb, 12.0f);
+
+    setParam (processor, params::aOrB, 1.0f);
+    report.check (pumpUntilSlot (processor, 1), "A/B enters slot B on the message thread");
+    report.check (getParamValue (processor, params::digitalSand) == 0.0f,
+                  "first entry to B clones the current A values");
+
+    setParam (processor, params::digitalSand, 100.0f);
+    setParam (processor, params::airRot, 75.0f);
+
+    setParam (processor, params::aOrB, 0.0f);
+    report.check (pumpUntilSlot (processor, 0), "A/B returns to slot A");
+    report.check (getParamValue (processor, params::digitalSand) == 0.0f
+                  && getParamValue (processor, params::airRot) == 0.0f,
+                  "slot A restores its own knob values");
+
+    setParam (processor, params::cabSmooth, 25.0f);
+    setParam (processor, params::aOrB, 1.0f);
+    report.check (pumpUntilSlot (processor, 1), "A/B re-enters slot B");
+    report.check (getParamValue (processor, params::digitalSand) == 100.0f
+                  && getParamValue (processor, params::airRot) == 75.0f
+                  && getParamValue (processor, params::cabSmooth) == 0.0f,
+                  "slot B retains values distinct from A");
+
+    const auto renderCurrent = [&]
+    {
+        warmUp (processor, sr, kDefaultBlockSize, 350.0f);
+
+        juce::AudioBuffer<float> buffer (2, renderLength);
+        PinkNoise noise (0xAB5107u);
+        for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
+            for (int n = 0; n < buffer.getNumSamples(); ++n)
+                buffer.setSample (ch, n, noise.next() * 0.35f);
+
+        runInPlace (processor, buffer, kDefaultBlockSize);
+        return buffer;
+    };
+
+    const auto bAudio = renderCurrent();
+    setParam (processor, params::aOrB, 0.0f);
+    report.check (pumpUntilSlot (processor, 0), "A/B switches to A before audio comparison");
+    const auto aAudio = renderCurrent();
+
+    float processingDifference = 0.0f;
+    for (int ch = 0; ch < aAudio.getNumChannels(); ++ch)
+        for (int n = 0; n < renderLength; ++n)
+            processingDifference = juce::jmax (
+                processingDifference,
+                std::abs (aAudio.getSample (ch, n) - bAudio.getSample (ch, n)));
+
+    report.check (processingDifference > 1.0e-3f,
+                  "A/B restores processing behavior, not only displayed values");
+
+    setParam (processor, params::aOrB, 1.0f);
+    report.check (pumpUntilSlot (processor, 1), "A/B selects B before saving");
+    setParam (processor, params::digitalSand, 91.0f);
+    setParam (processor, params::airRot, 73.0f);
+
+    juce::MemoryBlock saved;
+    processor.getStateInformation (saved);
+
+    CabRotProcessor restored;
+    restored.setStateInformation (saved.getData(), static_cast<int> (saved.getSize()));
+    report.check (restored.getActiveAbSlot() == 1
+                  && getParamValue (restored, params::digitalSand) == 91.0f
+                  && getParamValue (restored, params::airRot) == 73.0f,
+                  "preset state restores active B including its latest edits");
+
+    setParam (restored, params::aOrB, 0.0f);
+    report.check (pumpUntilSlot (restored, 0)
+                  && getParamValue (restored, params::digitalSand) == 0.0f
+                  && getParamValue (restored, params::cabSmooth) == 25.0f,
+                  "preset state preserves inactive A");
+
+    setParam (restored, params::aOrB, 1.0f);
+    report.check (pumpUntilSlot (restored, 1)
+                  && getParamValue (restored, params::digitalSand) == 91.0f,
+                  "preset state preserves B across a post-load round trip");
+
+    // Legacy presets were a single raw CABROT tree. A selected legacy slot
+    // loads directly, then clones into the other slot on first entry.
+    CabRotProcessor legacySource;
+    setParam (legacySource, params::digitalSand, 42.0f);
+    setParam (legacySource, params::aOrB, 1.0f);
+    juce::MemoryBlock legacyData;
+    if (auto legacyXml = legacySource.getApvts().copyState().createXml())
+        juce::AudioProcessor::copyXmlToBinary (*legacyXml, legacyData);
+
+    CabRotProcessor legacyRestored;
+    legacyRestored.setStateInformation (legacyData.getData(),
+                                        static_cast<int> (legacyData.getSize()));
+    report.check (legacyRestored.getActiveAbSlot() == 1
+                  && getParamValue (legacyRestored, params::digitalSand) == 42.0f,
+                  "legacy single-tree presets still load");
+
+    setParam (legacyRestored, params::aOrB, 0.0f);
+    report.check (pumpUntilSlot (legacyRestored, 0)
+                  && getParamValue (legacyRestored, params::digitalSand) == 42.0f,
+                  "a legacy preset clones safely on first entry to the other slot");
+
+    CabRotProcessor rapid;
+    setParam (rapid, params::digitalSand, 17.0f);
+    setParam (rapid, params::aOrB, 1.0f);
+    setParam (rapid, params::aOrB, 0.0f);
+    juce::MessageManager::getInstance()->runDispatchLoopUntil (40);
+    report.check (rapid.getActiveAbSlot() == 0
+                  && getParamValue (rapid, params::digitalSand) == 17.0f,
+                  "rapid A to B to A writes coalesce without corrupting A");
+}
+
+// --------------------------------------------------------------------------
+// 12. CPU. One instance, stereo, 48 kHz, everything working hard.
 // --------------------------------------------------------------------------
 void testCpuBudget (Report& report)
 {
@@ -590,6 +738,7 @@ int main()
         testDenormalsFlush (report);
         testUiTelemetry (report);
         testDeltaListen (report);
+        testAbSnapshots (report);
         testCpuBudget (report);
     }
     catch (const std::exception& e)

@@ -46,6 +46,7 @@ CabRotEditor::CabRotEditor (CabRotProcessor& p)
 
     wireAttachments();
     headerBar.setDeltaAvailable (true);
+    footerBar.setABAvailable (true);
 
     addKeyListener (this);
     setWantsKeyboardFocus (true);
@@ -79,6 +80,17 @@ void CabRotEditor::wireAttachments()
         auto& slider = knobRow.getKnob (static_cast<int> (i)).getSlider();
         knobAttachments.push_back (
             std::make_unique<SliderAttachment> (av, knobIds[i], slider));
+
+        if (auto* knobParam = av.getParameter (knobIds[i]))
+        {
+            const float defaultValue = knobParam->convertFrom0to1 (
+                knobParam->getDefaultValue());
+            slider.setDoubleClickReturnValue (true, defaultValue);
+        }
+        else
+        {
+            jassertfalse;
+        }
     }
 
     // Mode buttons -> Choice parameter. ParameterAttachment's lambda fires

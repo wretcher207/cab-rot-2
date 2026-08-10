@@ -45,11 +45,13 @@ inline const juce::String autoGain      { "autoGain" };
 inline const juce::String uiAnimation   { "uiAnimation" };
 } // namespace params
 
-class CabRotProcessor final : public juce::AudioProcessor
+class CabRotProcessor final : public juce::AudioProcessor,
+                              private juce::AudioProcessorValueTreeState::Listener,
+                              private juce::Timer
 {
 public:
     CabRotProcessor();
-    ~CabRotProcessor() override = default;
+    ~CabRotProcessor() override;
 
     void prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock) override;
     void releaseResources() override;
@@ -76,6 +78,10 @@ public:
 
     juce::AudioProcessorValueTreeState& getApvts() noexcept { return apvts; }
     juce::UndoManager&                  getUndoManager() noexcept { return undoManager; }
+    int getActiveAbSlot() const noexcept
+    {
+        return activeAbSlot.load (std::memory_order_acquire);
+    }
 
     struct UiTelemetry
     {
@@ -94,7 +100,17 @@ public:
     void discardUiPeakTelemetry() noexcept;
 
 private:
+    enum class AbSlot : int { a = 0, b = 1 };
+
     static juce::AudioProcessorValueTreeState::ParameterLayout buildParameterLayout();
+
+    void parameterChanged (const juce::String& parameterId, float newValue) override;
+    void timerCallback() override;
+    void switchToSlotLocked (AbSlot target);
+
+    static void forceSlotMarker (juce::ValueTree& state, AbSlot slot);
+    static AbSlot readSlotMarker (const juce::ValueTree& state);
+    juce::ValueTree& slotTree (AbSlot slot) noexcept;
 
     struct BlockTelemetry
     {
@@ -112,6 +128,15 @@ private:
     juce::AudioProcessorValueTreeState apvts { *this, &undoManager,
                                                juce::Identifier ("CABROT"),
                                                buildParameterLayout() };
+
+    // A/B snapshots are detached APVTS trees. Parameter listeners can run on
+    // the audio thread, so they only publish a requested slot; the processor
+    // timer performs the non-realtime copy/replace work on the message thread.
+    juce::ValueTree slotStateA, slotStateB;
+    juce::CriticalSection abStateLock;
+    std::atomic<int> pendingAbSlot  { -1 };
+    std::atomic<int> applyingAbSlot { -1 };
+    std::atomic<int> activeAbSlot   { 0 };
 
     // ------------------------------------------------------------------
     // Phase 4 DSP
