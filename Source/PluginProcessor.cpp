@@ -190,12 +190,17 @@ void CabRotProcessor::updateDspParameters() noexcept
         return juce::jlimit (0.0f, 1.0f, v->load (std::memory_order_relaxed) * 0.01f);
     };
 
-    const float fizz    = norm (p.fizzHunt);
-    const float edge    = norm (p.edgePreserve);
-    const float smooth  = norm (p.cabSmooth);
-    const float sand    = norm (p.digitalSand);
-    const float air     = norm (p.airRot);
-    const float mixAmt  = norm (p.reapMix);
+    const auto lift = [] (float value) noexcept
+    {
+        return value + kMainControlLift * value * (1.0f - value);
+    };
+
+    const float fizz    = lift (norm (p.fizzHunt));
+    const float edge    = lift (norm (p.edgePreserve));
+    const float smooth  = lift (norm (p.cabSmooth));
+    const float sand    = lift (norm (p.digitalSand));
+    const float air     = lift (norm (p.airRot));
+    const float mixAmt  = lift (norm (p.reapMix));
 
     const float ceilingDb  = p.maxReapDb ->load (std::memory_order_relaxed);
     const float attackMs   = p.clampSpeed->load (std::memory_order_relaxed);

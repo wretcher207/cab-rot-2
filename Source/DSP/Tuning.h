@@ -99,4 +99,9 @@ inline constexpr float kAutoGainMaxDb  = 6.0f;
 // Parameter smoothing (knob moves, not audio)
 // ---------------------------------------------------------------------------
 inline constexpr float kParamSmoothingMs = 20.0f;
+
+// Give the six main controls a slight lift through the middle of their travel
+// without moving either endpoint. With 0.08, a knob at 50% drives the DSP at
+// 52%; zero remains bit-exactly inert and 100% keeps its existing ceiling.
+inline constexpr float kMainControlLift = 0.08f;
 } // namespace cabrot::dsp::tuning

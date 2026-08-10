@@ -1,17 +1,20 @@
 # Cab Rot — Session Handoff
 
-**Last updated**: 2026-08-07 (Phase 4 DSP MVP landed)
+**Last updated**: 2026-08-10 (Phase 4 listened to, lightly retuned, rebuilt, and installed)
 **Repo**: https://github.com/wretcher207/cab-rot-2 (PUBLIC)
 **Working dir**: `C:\Users\wretc\workspace\cab-rot` (the old `C:\Users\david\...` Mac-era paths in this file are dead)
-**Current phase**: 4 done and measured. Phase 5 (mode system) is next. Phase 3's host-verification checks are still unticked and now need a real REAPER session.
+**Branch / HEAD**: `phase-4-dsp` at `c2e08a6`, synced with `origin/phase-4-dsp`; the 2026-08-10 control-response tuning is local and uncommitted.
+**Current phase**: 4 complete. David confirmed the plugin is useful on real guitar material and the REAPER behavior looks good. Phase 5 (mode system) is next.
 
 ---
 
 ## TL;DR
 
-Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. It makes sound. Phases 0 through 4 are committed: the four-band split, the transient detector, the dynamic reducer, the mixer and the trims are all wired, and the Phase 4 gate is measured by a test executable rather than by eye.
+Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. It makes sound and does a decent job on real high-gain guitar material according to David's 2026-08-09 REAPER test. Phases 0 through 4 are committed: the four-band split, transient detector, dynamic reducer, mixer, and trims are wired. The Phase 4 machine gate is measured by test executables; sound quality was confirmed separately by David.
 
-The character of the thing is not tuned. Every constant that decides how it sounds lives in `Source/DSP/Tuning.h`, deliberately, so re-voicing it is one file and a rebuild. That tuning is David's job, not an agent's.
+David chose to keep the **Cab Rot** identity and toxic-green UI. Do not resume the Sunder rebrand. After listening, he asked for every main knob to become effective by "just a hair." The local change adds a shallow response lift: a control at 50% drives the DSP at 52%, while 0% remains exact and 100% is unchanged. The strength constant is `kMainControlLift` in `Source/DSP/Tuning.h`; the curve is applied to all six main controls in `CabRotProcessor::updateDspParameters()`.
+
+The retuned VST3 was built and installed to `C:\Users\wretc\AppData\Local\Programs\Common\VST3\Cab Rot.vst3`. The built and installed binaries matched exactly at SHA-256 `A14A4BDA7DF76D1252D1FDA77825A9BC1C13BDEDC4F065ED5EE0855E4073E2F1`.
 
 The single source of truth for the build sequence is [PLAN.md](PLAN.md). Per-element design specs live in [design/CANONICAL-UI.md](design/CANONICAL-UI.md). This document is the cold-boot onboarding.
 
@@ -27,7 +30,8 @@ The single source of truth for the build sequence is [PLAN.md](PLAN.md). Per-ele
 | 2 | `a723464` | Static UI skeleton: 6 atoms (`DpdMark`, `LivePill`, `GhostToggle`, `SpectreKnob`, `ModeButton`, `MeterPill`) + 6 region components (`HeaderBar`, `WaspMeter`, `FizzReadout`, `AmpProfileGrid`, `KnobRow`, `FooterBar`); editor composes the regions; layout scales 1000×650 → 1600×1040 with no clipping |
 | 3 | `29ef836` | APVTS schema (22 parameters), UndoManager, save/restore via XML, six SliderAttachments, ButtonAttachment for Delta Listen, custom ParameterAttachment for A/B (radio-group desync fix), six ParameterAttachments for the Mode choice, ComboBoxAttachment for OS, TooltipWindow at 500 ms, Ctrl+Z / Ctrl+Y undo |
 | 3.5 | `82df973` | Tactile knob render: 7-layer drawRotarySlider with shadow, recessed track, 3-stack conic glow (16 / 9 / 5 px), domed cap with overhead-lighting gradient, top highlight + spec arc, bottom inner shadow, indicator with halo + specular highlight |
-| 4 | (this session) | DSP MVP. `Source/DSP/`: `Tuning.h`, `InputTrim`, `BandSplitter`, `TransientDetector`, `DynamicReducer`, `ReapMixer`. processBlock wired. Two measured test gates. |
+| 4 | `58e18e5` + `c2e08a6` | DSP MVP. `Source/DSP/`: `Tuning.h`, `InputTrim`, `BandSplitter`, `TransientDetector`, `DynamicReducer`, `ReapMixer`. `processBlock` wired, two measured test gates, and gotchas documented. |
+| 4 tuning | uncommitted | Subtle response lift across Fizz Hunt, Edge Preserve, Cab Smooth, Digital Sand, Air Rot, and Reap Mix. Midpoint maps 50% → 52%; endpoints stay fixed. |
 
 Build is 0 warnings, 0 errors across `CabRot_VST3`, `CabRot_Standalone`, `CabRot_PassthroughTest`, `CabRot_DspTest`, `CabRot_ThemeTest`.
 
@@ -84,17 +88,17 @@ locked decision, so it is David's call, not a silent switch.
 
 ---
 
-## What's NOT done (Phase 3 closure items)
+## Phase 3 host closure
 
-These are wired in code but not runtime-verified. They need a host or interactive Standalone session to confirm:
+David reported that everything looked good in REAPER on 2026-08-09 after running the requested host/listening pass. Treat these as user-confirmed rather than agent-observed:
 
-- [ ] Drop the VST3 in Reaper, drag every knob, confirm parameters appear in the host's automation list
-- [ ] Right-click a knob, confirm "Reset to default" + "Enter value..." are present
-- [ ] Save a Reaper project with non-default knob/mode values, close, reopen, confirm restore
-- [ ] Press Ctrl+Z 20 times in the editor and confirm rollback through prior changes
-- [ ] Hover any control for 500 ms and confirm tooltip appears
+- [x] VST3 loads and the controls behave in REAPER
+- [x] Parameters and control interactions look correct
+- [x] State/restore behavior looks correct
+- [x] Fizz reduction is useful on real guitar material
+- [x] Overall result retains enough guitar character to proceed
 
-Once those four pass, Phase 3 is signed off and Phase 4 is unblocked.
+If a future failure report needs exact reproduction, re-run the individual automation-list, context-menu, save/restore, undo, and tooltip checks. There is no known host blocker now.
 
 ---
 
@@ -119,8 +123,8 @@ Status: knob layer landed and committed. Curve and breath remain. David indicate
 | 3 | ~~Phase 3.5 (b) spectral curve before Phase 4 DSP?~~ | **Resolved by events.** Phase 4 went first. The WaspMeter is still the static 16-bar histogram and now wants real data, so the curve work folds naturally into Phase 6 rather than standing alone. `getBandReductionDb()` is already on the processor waiting for it. |
 | 4 | Phase 3.5 (c) idle breath layer? | Open. Self-contained polish; can land any time. |
 | 5 | Verify 2026 JUCE Indie license pricing/terms before Phase 10? | Open per locked decision #10. Not blocking until Phase 10 packaging. |
-| 6 | **Keep the Cab Rot identity or finish the Sunder rebrand?** | Open, and now the biggest one. The repo holds two unreconciled identities: Cab Rot (toxic green, 6 knobs, finished UI) and Sunder (amber "Scientific Luxury", simpler parameter surface, mockups only). Phase 4 is identity-agnostic, so nothing here forced the question. Phase 5 onward does. Sunder means redoing a UI that is already done. |
-| 7 | **Crossover topology.** | Open. See the Gate 4 conflict above. Current LR split is correct and measures well; the alternative buys literal bit-transparency at the cost of a reduction-path rewrite. Only worth doing if the phase shift bothers David in a real mix. |
+| 6 | **Keep the Cab Rot identity or finish the Sunder rebrand?** | **Resolved 2026-08-09: keep Cab Rot.** The toxic-green UI and current six-control product direction remain canonical. Sunder is rejected for this product. |
+| 7 | **Crossover topology.** | **Resolved for the current build:** keep the Linkwitz-Riley topology. David found the real-guitar result useful and reported no unacceptable bypass issue. Reopen only if a specific mix exposes an audible phase problem. |
 
 ---
 
@@ -147,22 +151,30 @@ Built in the order below. Kept here because it still describes the code.
 
 ### Phase 4 self-review gate: measured results
 
-Run `CabRot_DspTest.exe` to reproduce all of these. Numbers are from this
-machine, 2026-08-07.
+Run `CabRot_DspTest.exe` to reproduce all of these. The latest complete run was
+on this machine after the response-lift change, 2026-08-09.
 
 - [x] ~~All knobs at 0 + Reap Mix at 0: null vs bypass within −80 dB~~ **Superseded.** Not achievable on an LR crossover, see the conflict note above. Replaced by two checks that are: magnitude flat within **0.048 dB** worst bin, 30 Hz to 20 kHz, and band ceilings at zero are **bit-exactly** inert (max difference 0.000000000000).
-- [x] Fizz Hunt 100 + Reap Mix 100 + others 50: attenuation in 4-8 kHz. **-9.06 dB** in 4-8 kHz, **-0.02 dB** below 900 Hz. Surgical, not a broadband dip.
+- [x] Fizz Hunt 100 + Reap Mix 100 + others 50: attenuation in 4-8 kHz. **-9.18 dB** in 4-8 kHz after the slight control-response lift, **-0.02 dB** below 900 Hz. Surgical, not a broadband dip.
 - [x] Edge Preserve 100: pick attack measurably preserved. Attack peaks survive **4.28 dB** louder at Edge Preserve 100 than at 0, same reduction settings. This is the architectural claim, and it holds.
 - [x] No clicks / pops / zipper noise on fast knob sweeps. Worst output slew **1.486x** the input's while throwing Fizz Hunt and Reap Mix end to end every block.
 - [x] No denormals. Silence after a burst decays to **true zero**.
-- [x] CPU < 3%, stereo 48 kHz, oversampling off. **2.6 to 2.8%** worst case (all four bands wide open, Fizz Hunt at 100 so it is reducing on every sample). Of that, **1.8% is the band split alone** and is a fixed floor paid whatever the knobs say; the reduction itself is about 0.9%. Typical settings sit near the floor.
+- [x] CPU < 3%, stereo 48 kHz, oversampling off. Latest clean-build run measured **2.184%** worst case and **1.633%** for the idle split, with the reduction costing **0.551%**. Earlier repeatable runs measured 2.6 to 2.9%, so retain the <3% gate rather than treating the lowest single run as a new baseline.
 - [x] 44.1 / 48 / 88.2 / 96 / 176.4 / 192 kHz. All sane. Block sizes 1 / 7 / 64 / 512 / 2048 too, including blocks larger than the prepared size, which get sliced.
 
-Still open from the gate, and only David can close them: does the fizz
-actually go away, and does the guitar still sound like a guitar. No test can
-answer either.
+David closed the subjective gate on 2026-08-09: the effect does a decent job,
+the controls and host behavior look good, and the product is worth continuing.
 
 The pluginval mention in the risk register: start running pluginval continuously from Phase 4, not waiting for Phase 9. **Not yet run on this machine.**
+
+### 2026-08-10 cold-start state
+
+- Local changes: `Source/DSP/Tuning.h` and `Source/PluginProcessor.cpp` only.
+- Verification after the change: `CabRot_PassthroughTest` **3/3 passed**; `CabRot_DspTest` **13/13 passed**.
+- Fresh Release artifacts exist for VST3, Standalone, passthrough test, and DSP test.
+- Installed VST3 is byte-for-byte the tested build, proven by matching SHA-256 above.
+- No commit or push has been made for the response-lift change.
+- **Next concrete step:** review and commit the two-file tuning change, push `phase-4-dsp`, run pluginval, then begin Phase 5's six-mode system.
 
 ### The test harness
 
