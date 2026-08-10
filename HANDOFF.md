@@ -1,20 +1,20 @@
 # Cab Rot - Session Handoff
 
-**Last updated**: 2026-08-10 (DPD brand facelift shipped on `facelift-dpd`)
+**Last updated**: 2026-08-10 (UI truth baseline through `ef092c7`)
 **Repo**: https://github.com/wretcher207/cab-rot-2 (PUBLIC)
 **Working dir**: `C:\Users\wretc\workspace\cab-rot` (the old `C:\Users\david\...` Mac-era paths in this file are dead)
-**Branch / HEAD**: `facelift-dpd` (local, not yet pushed); `phase-4-dsp` remains at `c2e08a6` on origin.
-**Current phase**: Phase 4 DSP complete plus the 2026-08-10 control-response tuning (committed on `phase-4-dsp`) and now the full DPD brand facelift (committed on `facelift-dpd`). Phase 5 (mode system) is next.
+**Branch / verified implementation baseline**: `fix/ui-truth` at `ef092c7`, local with no upstream. `main` and `origin/main` remain at `17caba9`.
+**Current phase**: Phase 4 DSP and UI truth Tiers 1 and 2 are implemented. The provisional Phase 5 mode system is next. Mode buttons remain hidden until that DSP behavior and its tests land.
 
 ---
 
 ## TL;DR
 
-Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. It makes sound and does a decent job on real high-gain guitar material according to David's 2026-08-09 REAPER test. Phases 0 through 4 are committed: the four-band split, transient detector, dynamic reducer, mixer, and trims are wired. The Phase 4 machine gate is measured by test executables; sound quality was confirmed separately by David.
+Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. It makes sound and does a decent job on real high-gain guitar material according to David's 2026-08-09 REAPER test. Phases 0 through 4 are committed: the four-band reduction path, transient detector, dynamic reducer, mixer, and trims are wired. The UI truth pass now drives every visible instrument from real processing, makes Delta Listen and A/B functional, and hides unavailable mode and oversampling controls. The machine gate is measured by test executables; sound quality was confirmed separately by David.
 
 David chose to keep the **Cab Rot** identity. The toxic-green UI is now fully replaced by the Dead Pixel Design brand system (2026-08-10 facelift): near-black monochrome, hairlines, zero radius, DPD Display / Inter / JetBrains Mono. `Source/Theme/Palette.h` is hand-maintained from the brand kit; the Stitch palette and `tools/oklch-to-srgb.py` are deleted. See `design/FACELIFT-REPORT.md` for the rule-by-rule map and `design/CANONICAL-UI.md` for the rewritten spec. After listening, he asked for every main knob to become effective by "just a hair." The change (now committed on `phase-4-dsp`) adds a shallow response lift: a control at 50% drives the DSP at 52%, while 0% remains exact and 100% is unchanged. The strength constant is `kMainControlLift` in `Source/DSP/Tuning.h`; the curve is applied to all six main controls in `CabRotProcessor::updateDspParameters()`.
 
-The retuned VST3 was built and installed to `C:\Users\wretc\AppData\Local\Programs\Common\VST3\Cab Rot.vst3`. The built and installed binaries matched exactly at SHA-256 `A14A4BDA7DF76D1252D1FDA77825A9BC1C13BDEDC4F065ED5EE0855E4073E2F1`.
+The installed VST3 at `C:\Users\wretc\AppData\Local\Programs\Common\VST3\Cab Rot.vst3` predates `fix/ui-truth`. Do not treat it as the current UI-truth build or overwrite it while REAPER has it locked. Installation is a separate, explicit step after the final build and screenshot gate.
 
 The single source of truth for the build sequence is [PLAN.md](PLAN.md). Per-element design specs live in [design/CANONICAL-UI.md](design/CANONICAL-UI.md). This document is the cold-boot onboarding.
 
@@ -29,14 +29,18 @@ The single source of truth for the build sequence is [PLAN.md](PLAN.md). Per-ele
 | 1 | `9a1a52c` | Design system port: 55-token `Source/Theme/Palette.h` from `tools/oklch-to-srgb.py`; bundled fonts; `SpectreLookAndFeel`; theme-test sibling app; automated visual diff via `tools/render-stitch.ps1` + `tools/compare-pngs.py` |
 | 2 | `a723464` | Static UI skeleton: 6 atoms (`DpdMark`, `LivePill`, `GhostToggle`, `SpectreKnob`, `ModeButton`, `MeterPill`) + 6 region components (`HeaderBar`, `WaspMeter`, `FizzReadout`, `AmpProfileGrid`, `KnobRow`, `FooterBar`); editor composes the regions; layout scales 1000×650 → 1600×1040 with no clipping |
 | 3 | `29ef836` | APVTS schema (22 parameters), UndoManager, save/restore via XML, six SliderAttachments, ButtonAttachment for Delta Listen, custom ParameterAttachment for A/B (radio-group desync fix), six ParameterAttachments for the Mode choice, ComboBoxAttachment for OS, TooltipWindow at 500 ms, Ctrl+Z / Ctrl+Y undo |
-| 3.5 | `82df973` | Tactile knob render: 7-layer drawRotarySlider with shadow, recessed track, 3-stack conic glow (16 / 9 / 5 px), domed cap with overhead-lighting gradient, top highlight + spec arc, bottom inner shadow, indicator with halo + specular highlight |
+| 3.5 (historical) | `82df973` | Superseded tactile knob render. The DPD facelift and `285a12e` replaced this shadow/glow/depth stack; do not restore it. |
 | 4 | `58e18e5` + `c2e08a6` | DSP MVP. `Source/DSP/`: `Tuning.h`, `InputTrim`, `BandSplitter`, `TransientDetector`, `DynamicReducer`, `ReapMixer`. `processBlock` wired, two measured test gates, and gotchas documented. |
 | 4 tuning | `4dadc68` on `phase-4-dsp`... `84c5082` adds the CPU-bench skip env var | Subtle response lift across Fizz Hunt, Edge Preserve, Cab Smooth, Digital Sand, Air Rot, and Reap Mix. Midpoint maps 50% → 52%; endpoints stay fixed. |
 | facelift | `facelift-dpd`, 6 commits `9278904` → `393d888` | DPD brand facelift: hand-maintained `Palette.h`, brand fonts, flat atoms/regions, rewritten spectral display with dB scale, THE CRYPT deleted, header reads DEAD PIXEL HARMONIX, CANONICAL-UI.md rewritten, Stitch reference deleted. |
+| UI truth Tiers 1-2 | `2e61723` → `ef092c7` on `fix/ui-truth` | Removed fabricated UI, added one editor-owned 30 Hz telemetry poll, live reduction columns and peaks, real Fizz/CPU/meters/status, correct-polarity Delta Listen, deep persisted A/B snapshots, truthful knob defaults/units/interaction, and hid mode/OS controls that still lacked DSP. |
 
-Build is 0 warnings, 0 errors across `CabRot_VST3`, `CabRot_Standalone`, `CabRot_PassthroughTest`, `CabRot_DspTest`, `CabRot_ThemeTest`.
+The last recorded five-target Release build was 0 warnings and 0 errors. The
+current `ef092c7` test binaries are green, but the final five-target rebuild
+must still be run after Tier 3 and the documentation merge.
 
-Latest editor screenshot: [design/screenshots/phase-3.5-knobs-v2.png](design/screenshots/phase-3.5-knobs-v2.png).
+There is no approved final UI-truth screenshot yet. Any Phase 3.5 or facelift
+screenshot is historical and must not be used as the current visual target.
 
 ---
 
@@ -48,7 +52,8 @@ The signal path, per chunk:
 in -> InputTrim -> BandSplitter -> 6 bands
                                    bands summed = the reference
                                    bands 1..4: TransientDetector -> DynamicReducer -> delta
-      reference + (Reap Mix * summed deltas) -> OutputTrim -> out
+      normal: reference + (Reap Mix * summed deltas) -> OutputTrim -> out
+      Delta Listen: -(Reap Mix * summed deltas) -> OutputTrim -> out
 ```
 
 Two decisions in there are worth knowing before you change anything.
@@ -58,8 +63,9 @@ Two decisions in there are worth knowing before you change anything.
 untouched band sum. The alternative, crossfading a dry signal against a
 processed one, comb filters, because a Linkwitz-Riley split is phase-shifted
 relative to its own input. Working in deltas means Reap Mix scales how much
-fizz comes out and can never comb the source. It also makes Phase 7's Delta
-Listen close to free: the delta buffer already exists.
+fizz comes out and can never comb the source. Delta Listen now negates the
+processed-minus-dry delta, so it outputs the material actually removed. Its
+test asserts that wet plus removed reconstructs dry below -80 dB.
 
 **A band knob at zero is bit-exactly inert.** No reduction is possible, so the
 delta is hard zeroed and that band contributes literally nothing. Guarded by a
@@ -103,15 +109,20 @@ If a future failure report needs exact reproduction, re-run the individual autom
 
 ---
 
-## Course correction in flight (2026-05-05)
+## Superseded visual experiments (historical only)
 
-David flagged a visual-direction shift after seeing the **Throat-Wire** mockup. The pivot is *depth and flow*, not colour. Cab Rot keeps its toxic-green Spectre Codex palette; what we're stealing is:
+The May 2026 Throat-Wire depth-and-flow direction, tactile knob stack,
+draggable placeholder curve, and idle breathing layer are not current work.
+The DPD facelift replaced the tactile and toxic-green rendering. The UI truth
+pass then removed the fabricated spectrum and decorative activity.
 
-1. **Tactile control render** — done for knobs in commit `82df973`. Pattern can extend to mode buttons, A/B toggle, ghost icon if desired.
-2. **Spectral curve with draggable nodes** — NOT done. Phase 3.5 (b). Replaces the static 16-bar `WaspMeter` histogram with a smooth curve plus 4 interactive control-point nodes (one per detection band). Each node binds to a parameter so the curve's shape is itself a control surface. This wiring overlaps with Phase 4 DSP plumbing, so doing it before Phase 4 saves a refactor later.
-3. **Idle breath animation layer** — NOT done. Phase 3.5 (c). Single 30 Hz timer in `PluginEditor` driving phase offsets the LookAndFeel reads when painting glows / panel highlights. Cheap on CPU, makes the panel never look static.
-
-Status: knob layer landed and committed. Curve and breath remain. David indicated "we'll iterate" — pick one when resuming.
+- `WaspMeter` now shows four live reduction columns and held peaks on a log
+  frequency axis. A real FFT may be added in Phase 6, but a static spectrum,
+  smooth substitute curve, or draggable fake nodes must not return.
+- `PluginEditor` owns one 30 Hz timer for real telemetry. It is not an idle
+  ornament. LIVE is state-driven and does not breathe.
+- Knob hover and drag use only the flat 2.5 px arc and 1.5 px indicator from
+  the current DPD system. Do not extend the deleted glow or depth stack.
 
 ---
 
@@ -119,12 +130,12 @@ Status: knob layer landed and committed. Curve and breath remain. David indicate
 
 | # | Decision | Status |
 |---|---|---|
-| 1 | Bundle Space Grotesk Black (900) for the wordmark? | Currently using Bold (700). Black is on Google Fonts but the sandbox denied an agent-chosen download. David needs to either grab the TTF manually into `Resources/fonts/` and re-run `juce_add_binary_data`, or grant network permission once. |
-| 2 | Bundle JetBrains Mono Medium (500) for ui-chrome? | Currently using Regular (400). Same as above. |
-| 3 | ~~Phase 3.5 (b) spectral curve before Phase 4 DSP?~~ | **Resolved by events.** Phase 4 went first. The WaspMeter is still the static 16-bar histogram and now wants real data, so the curve work folds naturally into Phase 6 rather than standing alone. `getBandReductionDb()` is already on the processor waiting for it. |
-| 4 | Phase 3.5 (c) idle breath layer? | Open. Self-contained polish; can land any time. |
+| 1 | ~~Bundle Space Grotesk Black for the wordmark?~~ | **Resolved by the DPD facelift.** DPD Display is bundled and canonical. |
+| 2 | ~~Bundle JetBrains Mono Medium for UI chrome?~~ | **Resolved by the DPD facelift.** Bundled JetBrains Mono Regular is the canonical mono face. |
+| 3 | ~~Phase 3.5 spectral placeholder or curve?~~ | **Resolved by UI truth.** Four real live reduction columns and held peaks have shipped. Only a real Phase 6 FFT/history layer may be added. |
+| 4 | ~~Idle breath layer?~~ | **Declined by UI truth.** LIVE is state-driven; the sole editor telemetry timer must not create decorative motion. |
 | 5 | Verify 2026 JUCE Indie license pricing/terms before Phase 10? | Open per locked decision #10. Not blocking until Phase 10 packaging. |
-| 6 | **Keep the Cab Rot identity or finish the Sunder rebrand?** | **Resolved 2026-08-09: keep Cab Rot.** The toxic-green UI and current six-control product direction remain canonical. Sunder is rejected for this product. |
+| 6 | **Keep the Cab Rot identity or finish the Sunder rebrand?** | **Resolved 2026-08-09: keep Cab Rot.** The current DPD monochrome UI and six-control product direction are canonical. Sunder is rejected for this product. |
 | 7 | **Crossover topology.** | **Resolved for the current build:** keep the Linkwitz-Riley topology. David found the real-guitar result useful and reported no unacceptable bypass issue. Reopen only if a specific mix exposes an audible phase problem. |
 
 ---
@@ -152,8 +163,8 @@ Built in the order below. Kept here because it still describes the code.
 
 ### Phase 4 self-review gate: measured results
 
-Run `CabRot_DspTest.exe` to reproduce all of these. The latest complete run was
-on this machine after the response-lift change, 2026-08-09.
+Run `CabRot_DspTest.exe` to reproduce all of these. The latest functional run
+documented below was on this machine at `ef092c7`, 2026-08-10.
 
 - [x] ~~All knobs at 0 + Reap Mix at 0: null vs bypass within −80 dB~~ **Superseded.** Not achievable on an LR crossover, see the conflict note above. Replaced by two checks that are: magnitude flat within **0.048 dB** worst bin, 30 Hz to 20 kHz, and band ceilings at zero are **bit-exactly** inert (max difference 0.000000000000).
 - [x] Fizz Hunt 100 + Reap Mix 100 + others 50: attenuation in 4-8 kHz. **-9.18 dB** in 4-8 kHz after the slight control-response lift, **-0.02 dB** below 900 Hz. Surgical, not a broadband dip.
@@ -168,29 +179,58 @@ the controls and host behavior look good, and the product is worth continuing.
 
 The pluginval mention in the risk register: start running pluginval continuously from Phase 4, not waiting for Phase 9. **Not yet run on this machine.**
 
-### 2026-08-10 cold-start state
+### 2026-08-10 UI-truth baseline
 
-- Local changes: none. The facelift is committed on `facelift-dpd`, 6 commits ahead of `d35c418`, ending at `393d888`.
-- Verification after the facelift: `CabRot_PassthroughTest` **3/3 passed**, `CabRot_DspTest` **12/12 passed** with `CABROT_SKIP_CPU_BENCH=1` (the CPU benchmark measures the machine; screen recording was live during the run, so the budget check was skipped and the printed figures read instead: 2.480% all-open, 1.939% idle split).
-- Fresh Release artifacts exist for VST3, Standalone, passthrough test, DSP test, and ThemeTest. All five targets compile with 0 warnings, 0 errors.
-- The facelift branch has NOT been pushed. Push `facelift-dpd`, then decide whether it lands on main before or alongside Phase 5.
-- All branches are pushed: `facelift-dpd` merged fast-forward to `main` (now `17caba9`); `phase-4-dsp` updated to `84c5082`.
-- The facelifted VST3 is installed at `C:\Users\wretc\AppData\Local\Programs\Common\VST3\Cab Rot.vst3` and is byte-identical to the tested build (SHA-256 prefix `30F9CB141A01FE5E`).
-- **Next concrete step:** nothing blocking; Phase 5's six-mode system is the next agent-shaped block.
+- `fix/ui-truth` is local with no upstream. The verified implementation
+  baseline is `ef092c7`; `main` and `origin/main` are still `17caba9`.
+- The adversarial review prompt, `design/UI-FIX-SPEC.md`, and `references/`
+  are intentionally untracked source material. Preserve them unless David
+  explicitly chooses to add them.
+- UI telemetry is one editor-owned 30 Hz poll. It consumes real per-host-block
+  reduction maxima, post-trim input/output peaks, measured CPU, and recent
+  input activity. It drives the log-axis columns and peaks, Fizz, meters, LIVE,
+  and CLIPPING / PROCESSING / IDLE. `uiAnimation=false` freezes the last real
+  display values.
+- Delta Listen outputs the removed signal with correct polarity. A/B switches
+  deep APVTS snapshots on the message thread and persists both slots in the
+  `CABROT_PLUGIN_STATE` version 2 wrapper. Legacy raw `CABROT` state still
+  loads.
+- The mode grid remains hidden because `ef092c7` has no profile DSP. The OS
+  combo also remains hidden because oversampling is unimplemented.
+- Verification run on this machine: `CabRot_PassthroughTest` **3/3 passed**;
+  `CabRot_DspTest` **33/33 passed** with `CABROT_SKIP_CPU_BENCH=1`. The skipped
+  benchmark printed 2.812% all-open, 1.896% idle split, and 0.916% reduction
+  cost. Treat those numbers as machine observations, not a release baseline.
+- A fresh five-target Release build and approved default/minimum/maximum
+  screenshots are still pending after Tier 3. Do not claim the branch is final
+  or install it over the existing VST3 yet.
+- **Next concrete step:** implement and test the provisional Phase 5 mode table,
+  reveal the grid only after it changes audio, then run the full build and
+  screenshot gates. David still validates all six profiles by ear before
+  release.
 
 ### The test harness
 
 - `tests/TestSupport.h` — shared helpers: deterministic pink noise, parameter setters, averaged FFT spectra, band-delta maths.
 - `tests/passthrough_test.cpp` — the fast transparency gate. Repurposed from the Phase 0 sample-perfect null, which the Phase 4 topology retired.
-- `tests/dsp_test.cpp` — the Phase 4 gate, nine checks, about 30 s.
+- `tests/dsp_test.cpp`: DSP and UI-truth gate, including full-host-block
+  telemetry aggregation, Delta polarity, A/B values/audio/persistence/legacy
+  loading, and the machine-dependent CPU benchmark. The skipped-CPU baseline
+  currently reports 33 assertions.
 
 ---
 
 ## Phases 5 → 10 (one-line each, refer PLAN.md for detail)
 
-- **Phase 5** — Mode system: `ModeConfig` struct + 6 instances; mode change ramps coefficients via SmoothedValue; informal listening test confirms 6 audibly distinct outputs.
-- **Phase 6** — Wasp Meter live: 2048-pt FFT on audio thread, lock-free FIFO to UI; FIZZ % readout from real reduction; mode-button live dot pulses on detection. Total UI cost < 1% CPU at 60 Hz.
-- **Phase 7** — Delta Listen audio (already toggles visually); A/B snapshot pair (Phase 3 stubbed only the toggle, the snapshot logic lands here); `juce::dsp::Oversampling` wrap for 2x / 4x.
+- **Phase 5**: Next. Provisional `ModeConfig` table plus click-free ramps and a
+  mode-sweep assertion. Reveal the six buttons only after the processing path
+  reads the mode. David validates the tunings by ear before release.
+- **Phase 6**: Partly completed ahead of plan. Live reduction columns, peak
+  holds, and real Fizz are done. Only a real FFT input spectrum/history layer
+  remains optional; no placeholder shape is allowed.
+- **Phase 7**: Partly completed ahead of plan. Delta Listen and persisted A/B
+  snapshots are done. Real 2x/4x oversampling and latency reporting remain;
+  keep the OS control hidden until they land.
 - **Phase 8** — 12 starter presets + The Crypt advanced overlay (Crypt parameters already declared in APVTS so state migration is free).
 - **Phase 9** — pluginval strictness 10; 100-instance + 64-track stress; full automation lane test; resize stress.
 - **Phase 10** — Windows installer (Inno Setup or NSIS), 3 demo audio clips, demo video, Quickstart PDF, Gumroad bundle prep, landing page. macOS becomes Phase 11 after v1.0 ships.
@@ -261,6 +301,11 @@ These are documented because they bit at least once during the build:
 - **`juce::ParameterAttachment` is non-copyable** — vectors of it require `unique_ptr` storage.
 - **`Font::getStringWidth` is deprecated** in JUCE 8. Use `juce::GlyphArrangement::getBoundingBox`.
 - **A/B `ButtonAttachment` desync**: a plain `ButtonAttachment` on B alone leaves both A and B dark when the host writes `aOrB=false`, because JUCE's radio group only deselects on button-on. Workaround in `PluginEditor.cpp`: a single `ParameterAttachment` drives both buttons in lockstep.
+- **A/B state work is not realtime-safe.** The APVTS listener only publishes
+  an atomic slot request. The processor's message-thread timer performs the
+  locked deep-copy and `replaceState` work. Presets use a strict version 2
+  wrapper with both detached slot trees; keep legacy raw `CABROT` loading when
+  the schema changes.
 - **`PrintWindow` flag 2** is required on JUCE 8 (Direct2D). Flag 0 returns black. `tools/visual-diff.ps1` already uses flag 2.
 - **Benchmarking a plugin over one long buffer measures the wrong thing.** The first CPU test here streamed 30 seconds of audio (11.5 MB) in a single pass and read 3 to 7% with wild run-to-run variance. That is memory bandwidth, not the plugin: a real host hands over 512 samples at a time out of warm cache. Timing the best of nine passes over a 2-second cache-resident buffer gives 2.6% and repeats to within 0.05%. Same code, same flags. If a CPU figure here ever looks alarming, check the harness before optimising anything.
 - **The test targets did not link LTO** while the plugin target did, so the benchmark was measuring a slower binary than the one that ships. `juce::juce_recommended_lto_flags` is on all three test targets now. Keep it that way when adding a target.
@@ -286,16 +331,16 @@ cab-rot-2/
 ├── Resources/
 │   └── fonts/                      # DPD Display + Inter + JetBrainsMono ttf (BinaryData)
 ├── Source/
-│   ├── PluginProcessor.{h,cpp}     # APVTS schema lives here, processBlock is passthrough
-│   ├── PluginEditor.{h,cpp}        # composes regions, owns attachments + LookAndFeel
+│   ├── PluginProcessor.{h,cpp}     # APVTS, DSP, telemetry, Delta, A/B persistence
+│   ├── PluginEditor.{h,cpp}        # regions, attachments, one 30 Hz telemetry poll
 │   ├── Theme/
-│   │   ├── Palette.h               # GENERATED. 55 sRGB tokens. tools/oklch-to-srgb.py.
+│   │   ├── Palette.h               # hand-maintained DPD colour tokens
 │   │   ├── Fonts.{h,cpp}           # SpinLock-guarded typeface cache + 5 typography slots
 │   │   └── SpectreLookAndFeel.{h,cpp}  # drawRotarySlider, drawButtonBackground, etc.
 │   └── UI/
 │       ├── atoms/                  # DpdMark, LivePill, GhostToggle, SpectreKnob, ModeButton, MeterPill
 │       ├── HeaderBar.{h,cpp}
-│       ├── WaspMeter.{h,cpp}       # to be replaced by spectral curve in Phase 3.5b
+│       ├── WaspMeter.{h,cpp}       # live four-band reduction columns on log axis
 │       ├── FizzReadout.{h,cpp}
 │       ├── AmpProfileGrid.{h,cpp}
 │       ├── KnobRow.{h,cpp}
@@ -303,7 +348,8 @@ cab-rot-2/
 │       ├── ThemeTest.{h,cpp}       # phase-1 visual-diff harness, separate target
 │       └── ThemeTestApp.cpp        # JUCEApplication entry for ThemeTest
 ├── tests/
-│   └── passthrough_test.cpp        # null test, runs as CTest "passthrough"
+│   ├── passthrough_test.cpp        # fast transparency gate
+│   └── dsp_test.cpp                # DSP, telemetry, Delta, A/B, CPU gate
 └── tools/
     ├── compare-pngs.py             # PIL-based image diff with ImageMagick fallback
     ├── visual-diff.ps1             # build / launch / capture / crop / optional diff
@@ -318,7 +364,9 @@ The Crypt advanced parameters are declared in APVTS but the UI lands in Phase 8.
 
 - **No em dashes** in delivered prose (commit messages OK, user-facing copy not). Use commas, periods, parens, colons.
 - **Terse responses**. No trailing summaries when the diff already shows the change.
-- **Work autonomously**. Don't ask permission for routine commits, pushes to feature branches, rebases, branch creation.
+- **Work autonomously**. Don't ask permission for routine local commits,
+  reversible edits, or branch creation. Ask before pushes or other external
+  writes.
 - **Ask only when destructive** — `git reset --hard` with uncommitted changes, force push, deleting branches with unmerged commits, `rm -rf` outside scratch dirs.
 - **Honesty rules**: never fabricate file contents, command output, or API behaviour. If unverified, say so, then verify or ask.
 - **Stay on the path**: when David specifies a tool / approach, finish on that path. Real blocker -> stop and report. No silent pivots.
@@ -329,24 +377,43 @@ The Crypt advanced parameters are declared in APVTS but the UI lands in Phase 8.
 ## How to boot a new session
 
 1. Read this file end-to-end first.
-2. Skim [PLAN.md](PLAN.md) for the phase you're about to work on.
-3. Run a quick state check:
+2. Read [design/UI-FIX-SPEC.md](design/UI-FIX-SPEC.md), then the relevant
+   sections of [design/CANONICAL-UI.md](design/CANONICAL-UI.md) and
+   [PLAN.md](PLAN.md). UI-FIX wins over older placeholder or phase notes.
+3. Run a quick state and gate check:
 
 ```powershell
 git log --oneline | Select-Object -First 6
-.\build\CabRot_PassthroughTest_artefacts\Release\CabRot_PassthroughTest.exe   # null test
+git status --short
+.\build\CabRot_PassthroughTest_artefacts\Release\CabRot_PassthroughTest.exe
+$env:CABROT_SKIP_CPU_BENCH='1'
+.\build\CabRot_DspTest_artefacts\Release\CabRot_DspTest.exe
 ```
 
-4. Confirm with David that no decisions in §"Open decisions" have changed. Decisions 6 (identity) and 7 (topology) are the ones that gate real work.
-5. Pick the next item:
-   - Phase 3 host verification still has not happened. It needs David at the keyboard in REAPER, not an agent.
-   - Otherwise: Phase 5 mode system is the next agent-shaped block, but the six mode tunings are ear work and land better after David has listened to Phase 4 on his own material.
+4. Preserve the untracked review prompt, UI fix spec, and `references/` unless
+   David explicitly changes their disposition.
+5. The next implementation item after `ef092c7` is the provisional Phase 5
+   mode table and click-free sweep test. The buttons stay hidden until it is
+   real. After that, run the five-target Release build and capture default,
+   minimum, and maximum screenshots. David's ear check is still required
+   before calling the six profiles release-ready.
 
 ---
 
 ## Changelog
 
-- **2026-05-05** — Initial handoff written (Phase 0 ready to start).
-- **2026-08-10**: DPD brand facelift on `facelift-dpd`. The toxic Spectre Codex surface is gone: `Palette.h` is hand-maintained from the DPD brand kit, `tools/oklch-to-srgb.py` and the Stitch reference/tooling are deleted, every atom and region is flat monochrome with hairline geometry, the spectral display gained a real dB scale and damage-threshold error channel at 12 dB, THE CRYPT button is deleted (it opened nothing), the header reads DEAD PIXEL HARMONIX, the footer reports the actual processing state. Both suites pass (3/3 passthrough, 12/12 DSP with the CPU bench skipped per its machine-measurement semantics). `design/CANONICAL-UI.md` rewritten; `design/FACELIFT-REPORT.md` is the rule-by-rule map. Branch not yet pushed.
+- **2026-08-10**: UI truth Tiers 1 and 2 on `fix/ui-truth`, through
+  `ef092c7`. Removed fabricated CPU, meters, Fizz, graph data, unconditional
+  LIVE motion, and permanent PROCESSING. Added one 30 Hz telemetry path for
+  real reduction/Fizz/meters/CPU/status, correct-polarity Delta Listen, deep
+  versioned A/B snapshots with legacy loading, and honest knob defaults,
+  percent units, and hover/drag emphasis. Mode and OS controls remain hidden.
+  Verified 3/3 passthrough and 33/33 DSP assertions with the CPU benchmark
+  skipped. Final five-target build and three-size screenshots remain pending.
+- **2026-08-10**: DPD brand facelift on `facelift-dpd`. The toxic Spectre Codex surface is gone: `Palette.h` is hand-maintained from the DPD brand kit, `tools/oklch-to-srgb.py` and the Stitch reference/tooling are deleted, every atom and region is flat monochrome with hairline geometry, THE CRYPT button is deleted, and the header reads DEAD PIXEL HARMONIX. This visual pass still contained placeholder telemetry and dead controls; its old spectral and footer descriptions are superseded by the UI truth entry above. Both suites passed at the historical 3/3 and 12/12 counts. `design/FACELIFT-REPORT.md` remains the rule-by-rule visual map.
 - **2026-08-07** — Phase 4 DSP MVP built and measured on the Windows machine. First build of this repo on `wretc`; the Mac-era source compiled with 0 warnings and 0 errors once the CMake path was pointed at VS 2022 instead of the incomplete VS 18 install. `Source/DSP/` created (Tuning, InputTrim, BandSplitter, TransientDetector, DynamicReducer, ReapMixer), processBlock wired, `juce_dsp` added to the link lines. Two test executables replace the retired Phase 0 null test. Found and documented a genuine conflict between the locked LR crossover and Gate 4's first checkbox. The plugin makes sound and has never been heard by anyone.
-- **2026-05-05** — Updated. Phases 0 / 1 / 2 / 3 / 3.5(a) shipped. Visual direction shifted toward Throat-Wire depth/flow language while keeping the toxic-green Spectre Codex palette. Phase 3.5(b) spectral curve and 3.5(c) idle breath layer remain. Phase 4 is the next concrete audio milestone. Repo pushed to GitHub at `wretcher207/cab-rot-2` private.
+- **2026-05-05**: Initial handoff written (Phase 0 ready to start).
+- **2026-05-05, historical and fully superseded**: Phases 0 / 1 / 2 / 3 /
+  3.5(a) had shipped. The then-current Throat-Wire and toxic-green direction,
+  pending placeholder curve, idle breath, and Phase 4 next-step notes must not
+  be resumed. They are retained only as project history.

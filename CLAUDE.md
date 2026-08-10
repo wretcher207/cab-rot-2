@@ -7,16 +7,31 @@ Tagline: "Kill the wasp nest. Keep the teeth." | Label: Dead Pixel Harmonix
 - `PLAN.md`: 11-phase build plan with Self-Review Gates
 - `HANDOFF.md`: locked decisions, authority order, cold-start brief
 - `design/CANONICAL-UI.md`: UI spec and reference
+- `design/UI-FIX-SPEC.md`: governing UI truth pass. It wins where older phase
+  notes or the canonical document describe placeholder data or unavailable
+  controls.
 
 ## Current status
-See HANDOFF.md for current phase, what's shipped, and what's next. Don't duplicate that point-in-time state here, it goes stale.
+See HANDOFF.md for the current branch, verified baseline, and next gate. The
+non-negotiable UI invariant is stable: an on-screen measurement must come from
+real processing, and a control without audio behavior stays hidden.
 
 ## Locked decisions
 - 6 knobs: Fizz Hunt, Edge Preserve, Cab Smooth, Digital Sand, Air Rot, Reap Mix
-- 4-band crossover at 3.8 / 5.5 / 8 kHz
+- Four processed reduction bands: BITE 2.4-3.8 kHz, PLASTIC 3.8-5.5 kHz,
+  WASP 5.5-8 kHz, ICE 8-12 kHz
 - Delta Listen: ghost icon in header. The ghost never glows. Inactive is
-  `#4A4A47`, active is `#F2F2EF`.
-- Wasp Meter labels: BITE / PLASTIC / WASP / SAND / AIR / ICE
+  `#4A4A47`, active is `#F2F2EF`. Active audio is the removed signal with
+  the correct polarity; Reap Mix zero produces silence.
+- Wasp Meter: six log-frequency ticks, four live reduction columns, and four
+  band labels: BITE / PLASTIC / WASP / ICE. No fake input spectrum.
+- The editor owns one 30 Hz telemetry timer for reduction, Fizz, peak meters,
+  measured CPU, LIVE, and CLIPPING / PROCESSING / IDLE. `uiAnimation=false`
+  freezes the last real display values.
+- A/B owns two deep APVTS snapshots, persists them in the version 2 wrapper,
+  and accepts legacy raw `CABROT` state.
+- Mode buttons remain hidden until their DSP behavior lands. Oversampling
+  remains hidden until the real 2x / 4x chain lands.
 - Continuous resize, aspect-locked 1.54:1 (1000x650 min to 1600x1040 max)
 - Native JUCE rendering, no WebView
 - Aesthetic: the Dead Pixel Design brand system. Near-black monochrome, phosphor
@@ -32,8 +47,9 @@ black with toxic neon green and scanlines, was the aesthetic through Phase 4 and
 is now dead. So is the Sunder amber rebrand in `design/sunder/`, and the copper
 and knurled-hardware direction in `visual-upgrade-1.md`. All three are kept for
 history. If you find the old Spectre neon greens in a design here, it is
-wrong. `design/CANONICAL-UI.md` is authoritative for layout geometry only; its
-colour, radius and typography sections are superseded.
+wrong. `design/CANONICAL-UI.md` is authoritative for the current layout and
+visual system, with `design/UI-FIX-SPEC.md` taking priority for data truth and
+control availability.
 
 ## Key files
 - `CMakeLists.txt`: build config
@@ -44,11 +60,16 @@ colour, radius and typography sections are superseded.
   fontTools. Inter is pinned at weights 400 and 500, not variable.
 - `Source/DSP/`: BandSplitter, TransientDetector, DynamicReducer, ReapMixer, InputTrim
 - `Source/DSP/Tuning.h`: **every constant that decides how it sounds.** Re-voice here, nowhere else.
-- `tools/oklch-to-srgb.py`: retired. It generated the old Stitch palette.
+- `Source/PluginEditor.cpp`: APVTS attachments plus the single 30 Hz telemetry
+  poll that drives all visible instruments.
+- `Source/PluginProcessor.cpp`: DSP, lock-free UI telemetry, Delta Listen,
+  and message-thread A/B snapshot handoff and persistence.
+- `tools/oklch-to-srgb.py`: deleted. It generated the old Stitch palette.
 - `tests/passthrough_test.cpp`: transparency gate
-- `tests/dsp_test.cpp`: Phase 4 DSP gate. Its CPU check measures the machine,
-  so set `CABROT_SKIP_CPU_BENCH=1` on a loaded box and read the printed figures
-  instead. The other 12 checks are hard.
+- `tests/dsp_test.cpp`: DSP and UI-truth gate. Its CPU check measures the
+  machine, so set `CABROT_SKIP_CPU_BENCH=1` on a loaded box and read the printed
+  figures instead. The verified baseline at `ef092c7` reports 33/33 assertions
+  with that benchmark skipped.
 
 ## Build
 There is no `build.ps1` in this repo; earlier notes here were wrong about that. Use the CMake commands in HANDOFF.md.
