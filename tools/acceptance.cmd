@@ -39,8 +39,10 @@ set CABROT_SKIP_CPU_BENCH=1
 
 echo === doc citation gates ===
 python tools\verify-doc-citations.py || exit /b 1
+python tools\verify-doc-integrity.py || exit /b 1
 python tools\test-verify-exit-codes.py || exit /b 1
 python tools\test-harness-selfcheck.py || exit /b 1
+python tools\test-doc-integrity.py || exit /b 1
 
 echo.
 echo ACCEPTANCE OK

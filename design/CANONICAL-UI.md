@@ -318,7 +318,7 @@ editor headlessly and measures the claims instead of reading them:
 - the whole editor paints at all three sizes without crashing;
 - `mode` exposes exactly six profiles (5150, Recto, HM-2, Djent, Blackened,
   Sludge) and `oversampling` is Off / 2x / 4x defaulting to Off, matching
-  locked decisions 1 and 2.
+  locked decision 2 and the amp-profile list in §7.3.
 
 Run the full suite with `ctest --test-dir build -C Release`: four gates
 (`passthrough`, `dsp`, `editor`, `render`), all passing.
@@ -387,23 +387,32 @@ and core rules against the binding brand brief (§9.8). Run it after touching
 either the docs or the cited sources:
 
 ```
-python tools/verify-doc-citations.py            # 99 checks, exits non-zero on drift
+python tools/verify-doc-citations.py             # 107 checks, non-zero on drift
 python tools/verify-doc-citations.py --self-test # proves the checker can fail
+python tools/verify-doc-integrity.py             # encoding + cross-references
 python tools/test-verify-exit-codes.py           # pins the CI exit-code contract
+python tools/test-harness-selfcheck.py           # proves the harness detects itself
 ```
 
 The brief is not in this repo. The checker finds it via `$DPD_BRAND_BRIEF`
 or `$DPD_BRAND_KIT`, falling back to conventional sibling paths; when it
 cannot be found the brand checks report **SKIPPED**, never a silent pass.
 
-It currently reports `OK: 99 citations and anchors verified`, from a clean
+It currently reports `OK: 107 citations and anchors verified`, from a clean
 clone as well as in place. It caught three dangling citations in the
 facelift report when first run (a paint-function range, a knob-sizing range
 and a placeholder-data range, all stale after earlier edits); those are
 fixed. Verified failure modes: dangling line number, inverted range, drifted
 anchor content, and a mutated palette token each produce a non-zero exit.
+
+One blind spot worth recording, because it was found the hard way: the first
+version only proved a cited *range* fitted inside the file. Adding a method
+to `WaspMeter.h` shifted a cited range by 11 lines and the checker stayed
+green. Range endpoints now carry content anchors. A checker that has never
+missed anything has usually not been tested hard enough.
+
 This closes the cheapest gap, citation drift. It does not substitute for
-committing build and screenshot evidence, which remains open.
+committing screenshot evidence, which remains open.
 
 Also in this area: the dB guide lines are drawn to
 `getLocalBounds().getRight()` (`WaspMeter.cpp:120`, `:128`) rather
@@ -464,25 +473,20 @@ code (only `wordmarkScaled` has a call site), and `KnobRow.cpp:49` uses
 integer cell division, dropping up to 5 px on the right edge at arbitrary
 widths in a layout that otherwise insists on a 4 px spacing atom.
 
-### 9.7 (superseded) The stateError path was unproven
+### 9.7 The stateError path: predicted defect, measured absent
 
-The original finding read: the damage path is untested, and
-`WaspMeter.cpp:216` clips with `juce::roundToInt (thresholdY)` against a
-1.5 px float-stroked path, so the crossing point could leave a pixel of
-`inkPrimary` inside damaged territory. That was a reasonable prediction from
-reading the code. It is now measured below and the predicted leak does not
-appear.
+**Status: the original finding was wrong, and this section records that.**
 
-### 9.7a The stateError path, now actually exercised
+The review predicted a defect from reading the code: `WaspMeter.cpp:216`
+clips with `juce::roundToInt (thresholdY)` against a 1.5 px float-stroked
+path, so the crossing point could leave a pixel of `inkPrimary` inside
+damaged territory. `FACELIFT-REPORT.md` ("Known honest limits") had called
+the path "proven by construction" while never exercising it, so neither
+document had evidence.
 
-`FACELIFT-REPORT.md` ("Known honest limits") conceded the damage path is
-never exercised because placeholder reductions stay under 12 dB, then
-asserted it was proven by construction. That assertion has now been replaced
-with a measurement.
-
-`tests/render_test.cpp` (target `CabRot_RenderTest`) renders the WaspMeter
-offscreen and counts pixels by token colour. Results on this machine, MSVC
-19.44, Release:
+`tests/render_test.cpp` (target `CabRot_RenderTest`) now renders the
+WaspMeter offscreen and counts pixels by token colour. Results on this
+machine, MSVC 19.44, Release:
 
 | Reduction | stateError px | inkPrimary px |
 |---|---|---|
@@ -491,11 +495,11 @@ offscreen and counts pixels by token colour. Results on this machine, MSVC
 | flat 12.1 / 12.5 / 13.0 / 14.0 dB | 742 | 0 |
 | flat 18.0 dB | 742 | 0 |
 
-So the two-pass clip **does** work: below the threshold the curve is primary
-ink with zero damage pixels, above it the curve is fully damage-coloured,
-and the damage ink appears only in the lower part of the scale (first error
-row at 0.678 of frame height against a 0.500 threshold fraction). The
-pixel-leak worry in the original review is not observable at any sweep point.
+The two-pass clip works. Below the threshold the curve is primary ink with
+zero damage pixels; above it the curve is fully damage-coloured; the damage
+ink appears only in the lower part of the scale (first error row at 0.678 of
+frame height against a 0.500 threshold fraction). The predicted pixel leak
+is not observable at any sweep point.
 
 One honest caveat on method, which the sweep itself exposed. At exactly
 12.0 dB both counters read zero, which looks alarming until you note that a
@@ -585,10 +589,19 @@ Three new divergences the brief exposes, none previously recorded:
   `tools/build-msvc.cmd` activates them and JUCE 8.0.12 is fetched as a
   tarball. All targets build with zero warnings. §9.3 now reports reproduced
   build results, §9.2 is verified behaviourally by the new
-  `CabRot_EditorTest`, and §9.7 is superseded by §9.7a, where
-  `CabRot_RenderTest` measures the damage-threshold rendering and finds the
-  predicted ink leak does not occur. `ctest -C Release`: 4/4 gates pass.
+  `CabRot_EditorTest`, and §9.7 is rewritten around a measurement, where
+  `CabRot_RenderTest` finds the predicted ink leak does not occur.
+  `ctest -C Release`: 4/4 gates pass.
   Citation checker gained range-endpoint anchors after this work exposed a
   real blind spot (a cited range silently drifted 11 lines while the checker
   stayed green); 107 checks.
+- **2026-08-10, prose read-through**: read the amended document end to end
+  as a reader rather than as a checker, which caught what the machine checks
+  could not: §9.7 had been split into two near-duplicate sections saying the
+  same thing twice and is now one; a cross-reference to locked "decisions 1
+  and 2" named the wrong decision; and the tool list still advertised 99
+  checks and omitted two scripts. Added `tools/verify-doc-integrity.py` for
+  the class of defect involved, encoding damage and cross-references to
+  sections that do not exist. It immediately caught a dangling reference to
+  the removed subsection left behind by that merge.
 
