@@ -89,22 +89,24 @@ void WaspMeter::paintDbScale (juce::Graphics& g, juce::Rectangle<int> area)
         g.setColour (theme::inkMeta);
         g.drawText (ticks[i] + " dB",
                     juce::Rectangle<int> (area.getX() + 4,
-                                          juce::roundToInt (y) - 6,
+                                          juce::roundToInt (y) - 7,
                                           area.getWidth() - 4,
                                           12),
                     juce::Justification::centredLeft, false);
 
         // Guide line across the full meter width, kept as dim as possible.
-        g.setColour (theme::rule.withAlpha (0.55f));
-        g.drawLine (static_cast<float> (area.getRight() + 4), y,
-                    static_cast<float> (getLocalBounds().getRight()), y, 1.0f);
+        const auto guideY = y;
+        g.setColour (theme::rule.withAlpha (0.40f));
+        g.drawLine (static_cast<float> (area.getRight() + 4), guideY,
+                    static_cast<float> (getLocalBounds().getRight()), guideY, 1.0f);
 
-        // Damaged territory: mark the 12 dB guide distinctly, but quietly.
+        // Damaged territory: the 12 dB guide is the one that matters, so it
+        // draws at full strength while the others whisper.
         if (ticks[i] == "-12")
         {
             g.setColour (theme::rule);
-            g.drawLine (static_cast<float> (area.getRight() + 4), y,
-                        static_cast<float> (getLocalBounds().getRight()), y, 1.0f);
+            g.drawLine (static_cast<float> (area.getRight() + 4), guideY,
+                        static_cast<float> (getLocalBounds().getRight()), guideY, 1.0f);
         }
     }
 }
@@ -137,8 +139,22 @@ void WaspMeter::paintReference (juce::Graphics& g, juce::Rectangle<int> plot)
                   static_cast<float> (plot.getBottom()));
     shape.closeSubPath();
 
-    g.setColour (theme::rule);
+    g.setColour (theme::rule.withAlpha (0.45f));
     g.fillPath (shape);
+
+    // The shape's silhouette carries the full token; the mass stays quiet.
+    juce::Path edge;
+    for (int i = 0; i < kNumColumns; ++i)
+    {
+        const float x = plot.getX() + w * static_cast<float> (i) / static_cast<float> (kNumColumns - 1);
+        const float top = plot.getBottom() - reference[i] * plot.getHeight();
+        if (i == 0)
+            edge.startNewSubPath (x, top);
+        else
+            edge.lineTo (x, top);
+    }
+    g.setColour (theme::rule);
+    g.strokePath (edge, juce::PathStrokeType (1.0f, juce::PathStrokeType::mitered));
 }
 
 void WaspMeter::paintReductionCurve (juce::Graphics& g, juce::Rectangle<int> plot)
