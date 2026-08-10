@@ -410,6 +410,51 @@ territory, which is exactly the seam the two-pass render exists to avoid.
 This is cheap to falsify: set one entry of `reductionDb` above 12.0f and
 look. Do that before claiming the path works.
 
+### 9.8 Checked against the binding brand brief
+
+The brief is `dead-pixel-design-v4/brand-kit/AI-BRAND-BRIEF.md`. It is **not
+in this repository**; it resolves to
+`C:\Users\wretc\workspace\dead-pixel-design-v4\brand-kit\AI-BRAND-BRIEF.md`
+on the current machine. Both this document and `FACELIFT-REPORT.md` cite it
+by a bare relative path that resolves from nowhere in a clean checkout. A
+future agent cannot verify brand compliance without being told where it
+lives. That path dependency is itself a defect; the fix is either vendoring
+the brief or recording its origin, and this note is the interim record.
+
+Read directly and compared, 2026-08-10:
+
+- **Palette: exact match.** All eleven tokens in `Source/Theme/Palette.h`
+  are byte-identical to the brief's list (`AI-BRAND-BRIEF.md:41-51`),
+  including the semantics that `#7FA57A` is "real success or live state
+  only" and `#C4574C` is "real error only".
+- **Radius: match.** "Use square geometry. Border radius is zero." (`:16`).
+- **Typography: match.** DPD Display 400 uppercase at 0.06-0.10em with
+  wordmark up to 0.32em, Inter 400/500 sentence case, JetBrains Mono at
+  about 0.18em for short uppercase labels (`:59-61`). The shipping wordmark
+  tracking of 0.30em is inside the permitted range.
+- **Scanlines: match.** "Keep scanlines inside screens or media frames. Do
+  not cover the whole page with them." (`:91`). Confined to the WaspMeter
+  frame.
+
+Three new divergences the brief exposes, none previously recorded:
+
+1. **The live-state colour is used for a state that is not real.** The brief
+   restricts `#7FA57A` to "real success or live state only" (`:50`). The
+   header LIVE mark pulses on a timer whenever the editor is visible, and
+   the footer meters are hardcoded to 0.70 / 0.85. So the one colour the
+   brief reserves for genuine live state is currently the plugin's largest
+   fiction. This makes §9.4 a brand violation, not merely an honesty
+   complaint.
+2. **Motion is out of the brief's range.** Atmospheric movement is specified
+   at 14 to 48 seconds (`:100`). The LIVE pulse runs a 3 second cycle
+   (`LivePill.cpp:32`), roughly five times faster than the slowest
+   permitted atmospheric motion. Either reclassify it as a functional
+   indicator (durations 160/240/700 ms, `:99`) or slow it into range.
+3. **Reduced motion is not respected** (`:103`). Nothing in `Source/` reads
+   a reduced-motion preference, and the `uiAnimation` parameter that exists
+   for exactly this purpose has no consumer (see §9.5). Wiring `uiAnimation`
+   to `LivePill::visibilityChanged` is a small change that closes both.
+
 ---
 
 ## 10. Amendment log
