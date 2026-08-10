@@ -323,20 +323,29 @@ commit their evidence or stop citing it.
 
 Partial remedy, added with this amendment: `tools/verify-doc-citations.py`
 checks every `File.ext:N` citation in this document and in
-`FACELIFT-REPORT.md` against the referenced file, and content-checks a set
-of anchor lines that the arguments in §9 depend on. Run it after touching
+`FACELIFT-REPORT.md` against the referenced file, content-checks a set of
+anchor lines that the arguments in §9 depend on, and compares the palette
+and core rules against the binding brand brief (§9.8). Run it after touching
 either the docs or the cited sources:
 
 ```
-python tools/verify-doc-citations.py
+python tools/verify-doc-citations.py            # 99 checks, exits non-zero on drift
+python tools/verify-doc-citations.py --self-test # proves the checker can fail
+python tools/test-verify-exit-codes.py           # pins the CI exit-code contract
 ```
 
-It currently reports `OK: 75 citations and anchors verified`. It caught
-three dangling citations in the facelift report when first run (a
-paint-function range, a knob-sizing range and a placeholder-data range, all
-stale after earlier edits); those are fixed. This closes the cheapest gap,
-citation drift. It does not substitute for committing build and screenshot
-evidence, which remains open.
+The brief is not in this repo. The checker finds it via `$DPD_BRAND_BRIEF`
+or `$DPD_BRAND_KIT`, falling back to conventional sibling paths; when it
+cannot be found the brand checks report **SKIPPED**, never a silent pass.
+
+It currently reports `OK: 99 citations and anchors verified`, from a clean
+clone as well as in place. It caught three dangling citations in the
+facelift report when first run (a paint-function range, a knob-sizing range
+and a placeholder-data range, all stale after earlier edits); those are
+fixed. Verified failure modes: dangling line number, inverted range, drifted
+anchor content, and a mutated palette token each produce a non-zero exit.
+This closes the cheapest gap, citation drift. It does not substitute for
+committing build and screenshot evidence, which remains open.
 
 Also in this area: the dB guide lines are drawn to
 `getLocalBounds().getRight()` (`WaspMeter.cpp:120`, `:128`) rather
@@ -471,4 +480,13 @@ Three new divergences the brief exposes, none previously recorded:
   than from memory; roughly a dozen had drifted and are corrected.
   `tools/verify-doc-citations.py` added to keep them honest, and verified to
   fail on both a dangling line number and an anchor whose content changed.
+- **2026-08-10, brand-brief validation**: §9.8 added. The palette, radius,
+  typography and scanline rules were compared directly against
+  `AI-BRAND-BRIEF.md` and match exactly. Three new divergences recorded:
+  `stateLive` used for a fabricated live state, LIVE pulse motion outside
+  the brief's atmospheric range, and reduced motion unimplemented. The
+  checker gained brand-token verification, external-brief discovery with an
+  explicit SKIPPED state, brief line anchors, and inverted-range detection;
+  `tools/test-verify-exit-codes.py` pins the exit-code contract. Full suite:
+  99 checks, passing from a clean clone.
 

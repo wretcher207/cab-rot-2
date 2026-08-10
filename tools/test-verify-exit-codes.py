@@ -36,6 +36,18 @@ def swap(path: pathlib.Path, old: bytes, new: bytes) -> bytes:
 def main() -> int:
     results = []
 
+    # Baseline: whatever git already thinks is dirty before we touch anything.
+    # Comparing against this instead of against "" lets the harness run on a
+    # work-in-progress tree without reporting the user's own edits as damage,
+    # while still catching any file THIS harness fails to restore.
+    watched = ["Source/Theme/Palette.h", "design/CANONICAL-UI.md"]
+
+    def dirt() -> str:
+        return subprocess.run(["git", "status", "--porcelain", *watched],
+                              capture_output=True, text=True, cwd=ROOT).stdout.strip()
+
+    baseline = dirt()
+
     r = run()
     results.append(("clean tree exits 0", r.returncode == 0, r.returncode))
 
@@ -65,11 +77,12 @@ def main() -> int:
     r = run()
     results.append(("restored tree exits 0 again", r.returncode == 0, r.returncode))
 
-    # The harness must leave the tree byte-identical to how it found it.
-    dirty = subprocess.run(["git", "status", "--porcelain",
-                            "Source/Theme/Palette.h", "design/CANONICAL-UI.md"],
-                           capture_output=True, text=True, cwd=ROOT).stdout.strip()
-    results.append(("harness left the tree byte-clean", dirty == "", dirty or "clean"))
+    # The harness must leave the tree exactly as it found it, byte for byte.
+    after = dirt()
+    results.append(("harness restored the tree byte-exactly",
+                    after == baseline,
+                    "unchanged" if after == baseline
+                    else f"baseline={baseline!r} after={after!r}"))
 
     ok = all(passed for _, passed, _ in results)
     for name, passed, detail in results:

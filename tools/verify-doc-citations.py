@@ -78,6 +78,22 @@ BRIEF_RULES = [
     "Keep scanlines inside screens or media frames",
 ]
 
+# Line-exact anchors inside the brief itself. CANONICAL-UI section 9.8 cites
+# these by number, and the brief is an external file this repo does not
+# control, so its line numbers can drift without any commit here.
+BRIEF_ANCHORS = [
+    (16, "Border radius is zero"),
+    (41, "#060606"),
+    (50, "#7FA57A"),
+    (51, "#C4574C"),
+    (59, "0.32em"),
+    (61, "0.18em"),
+    (91, "Keep scanlines inside screens"),
+    (99, "160ms"),
+    (100, "14 to 48 seconds"),
+    (103, "Respect reduced motion"),
+]
+
 
 def find_brief() -> Path | None:
     explicit = os.environ.get("DPD_BRAND_BRIEF")
@@ -131,6 +147,19 @@ def check_brand(failures: list[str], notes: list[str]) -> int:
             failures.append(
                 f"brand: rule {rule!r} no longer in the brief; "
                 "CANONICAL-UI section 9.8 cites it")
+
+    brief_lines = text.splitlines()
+    for lineno, needle in BRIEF_ANCHORS:
+        done += 1
+        if lineno > len(brief_lines):
+            failures.append(
+                f"brand anchor {brief.name}:{lineno}: past EOF "
+                f"({len(brief_lines)}); CANONICAL-UI section 9.8 cites it")
+        elif needle not in brief_lines[lineno - 1]:
+            failures.append(
+                f"brand anchor {brief.name}:{lineno}: expected {needle!r}, "
+                f"found {brief_lines[lineno - 1].strip()!r}; "
+                "CANONICAL-UI section 9.8 cites this line")
 
     notes.append(f"brand brief: {brief}")
     return done
