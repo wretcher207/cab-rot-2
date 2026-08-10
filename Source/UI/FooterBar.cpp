@@ -14,8 +14,6 @@ FooterBar::FooterBar()
 {
     addAndMakeVisible (inMeter);
     addAndMakeVisible (outMeter);
-    inMeter.setVisible (false);
-    outMeter.setVisible (false);
 
     aButton.setRadioGroupId (2, juce::dontSendNotification);
     bButton.setRadioGroupId (2, juce::dontSendNotification);
@@ -41,6 +39,14 @@ void FooterBar::setABAvailable (bool available)
 {
     aButton.setVisible (available);
     bButton.setVisible (available);
+}
+
+void FooterBar::setLevels (float inputPeak, float outputPeak,
+                           float elapsedSeconds, bool outputClipping)
+{
+    inMeter.updatePeak (inputPeak, elapsedSeconds);
+    outMeter.updatePeak (outputPeak, elapsedSeconds);
+    outMeter.setClipping (outputClipping);
 }
 
 void FooterBar::setStatusText (juce::String text)

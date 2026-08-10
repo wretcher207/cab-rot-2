@@ -22,6 +22,8 @@ public:
 
     void setStatusText (juce::String text);
     void setABAvailable (bool available);
+    void setLevels (float inputPeak, float outputPeak,
+                    float elapsedSeconds, bool outputClipping);
 
     juce::TextButton& getButtonA()      noexcept { return aButton; }
     juce::TextButton& getButtonB()      noexcept { return bButton; }

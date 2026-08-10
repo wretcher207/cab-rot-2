@@ -15,12 +15,14 @@ public:
     explicit MeterPill (juce::String label);
     ~MeterPill() override = default;
 
-    void setLevel (float zeroToOne);
+    void updatePeak (float linearPeak, float elapsedSeconds);
+    void setClipping (bool shouldShowClip);
     void paint (juce::Graphics&) override;
 
 private:
     juce::String label;
-    float        level = 0.0f;
+    float        displayedDb = -60.0f;
+    bool         clipping = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MeterPill)
 };
