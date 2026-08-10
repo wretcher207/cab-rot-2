@@ -240,7 +240,7 @@ void ThemeTest::paintMeters (juce::Graphics& g, juce::Rectangle<int> area)
     auto headerStrip = area.removeFromTop (32);
     g.setFont (theme::Fonts::monoLabel (10.0f));
     g.setColour (theme::inkMeta);
-    g.drawText ("SPECTRAL ANALYSIS", headerStrip.removeFromLeft (200),
+    g.drawText ("GAIN REDUCTION", headerStrip.removeFromLeft (200),
                 juce::Justification::centredLeft, false);
     g.drawText ("WASP METER", headerStrip, juce::Justification::centredRight, false);
     area.removeFromTop (8);
@@ -253,45 +253,6 @@ void ThemeTest::paintMeters (juce::Graphics& g, juce::Rectangle<int> area)
 
     theme::SpectreLookAndFeel::drawScanlines (g, frame.reduced (1), 0.05f, 3);
 
-    auto inner = frame.reduced (1);
-    inner.removeFromLeft (48);
-    auto plot = inner.reduced (12, 12).withTrimmedLeft (4);
-
-    // Reference spectrum, quiet fill.
-    constexpr int N = 16;
-    constexpr float heights[N] = {
-        0.10f, 0.15f, 0.25f, 0.22f, 0.35f,
-        0.30f, 0.60f, 0.85f, 0.75f,
-        0.50f, 0.30f, 0.20f, 0.10f, 0.05f,
-        0.05f, 0.05f
-    };
-    juce::Path shape;
-    const float w = static_cast<float> (plot.getWidth());
-    shape.startNewSubPath (static_cast<float> (plot.getX()),
-                           static_cast<float> (plot.getBottom()));
-    for (int i = 0; i < N; ++i)
-        shape.lineTo (plot.getX() + w * static_cast<float> (i) / static_cast<float> (N - 1),
-                      plot.getBottom() - heights[i] * plot.getHeight());
-    shape.lineTo (static_cast<float> (plot.getRight()),
-                  static_cast<float> (plot.getBottom()));
-    shape.closeSubPath();
-    g.setColour (theme::rule.withAlpha (0.55f));
-    g.fillPath (shape);
-
-    // Reduction curve, primary ink.
-    juce::Path curve;
-    curve.startNewSubPath (static_cast<float> (plot.getX()),
-                           static_cast<float> (plot.getBottom()));
-    const float py = static_cast<float> (plot.getY());
-    const float cx = static_cast<float> (plot.getCentreX());
-    const float pb = static_cast<float> (plot.getBottom());
-    const float ph = static_cast<float> (plot.getHeight());
-    curve.quadraticTo (cx - w * 0.1f, py + ph * 0.1f,
-                       cx,            py + ph * 0.35f);
-    curve.quadraticTo (cx + w * 0.1f, py + ph * 0.6f,
-                       static_cast<float> (plot.getRight()), pb);
-    g.setColour (theme::inkPrimary);
-    g.strokePath (curve, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved));
 }
 
 void ThemeTest::paintFooter (juce::Graphics& g, juce::Rectangle<int> area)

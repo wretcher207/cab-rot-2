@@ -1,11 +1,48 @@
 #include "WaspMeter.h"
 
+#include "../DSP/Tuning.h"
 #include "../Theme/Fonts.h"
 #include "../Theme/Palette.h"
 #include "../Theme/SpectreLookAndFeel.h"
 
+#include <array>
+#include <cmath>
+
 namespace cabrot::ui
 {
+namespace
+{
+constexpr std::array<float, 6> kFrequencyTicks {
+    1000.0f, 2000.0f, 4000.0f, 8000.0f, 12000.0f, 20000.0f
+};
+
+const std::array<juce::String, 6> kFrequencyLabels {
+    "1k", "2k", "4k", "8k", "12k", "20k"
+};
+
+const std::array<juce::String, dsp::tuning::kNumProcessedBands> kZoneLabels {
+    "BITE", "PLASTIC", "WASP", "ICE"
+};
+
+float xForFrequency (float frequencyHz, juce::Rectangle<int> plot) noexcept
+{
+    const float t = std::log10 (frequencyHz / 1000.0f) / std::log10 (20.0f);
+    return static_cast<float> (plot.getX()) + t * static_cast<float> (plot.getWidth());
+}
+
+juce::Rectangle<int> labelPlot (juce::Rectangle<int> row) noexcept
+{
+    return row.withTrimmedLeft (65).withTrimmedRight (13);
+}
+
+juce::Rectangle<int> centredLabel (juce::Rectangle<int> row, float centreX, int width) noexcept
+{
+    const int x = juce::jlimit (row.getX(), row.getRight() - width,
+                                juce::roundToInt (centreX) - width / 2);
+    return { x, row.getY(), width, row.getHeight() };
+}
+}
+
 WaspMeter::WaspMeter()
 {
     setOpaque (false);
@@ -39,7 +76,7 @@ void WaspMeter::paintHeader (juce::Graphics& g, juce::Rectangle<int> area)
 
     g.setFont   (theme::Fonts::monoLabel (10.0f));
     g.setColour (theme::inkMeta);
-    g.drawText  ("SPECTRAL ANALYSIS",
+    g.drawText  ("GAIN REDUCTION",
                  inner.removeFromLeft (200),
                  juce::Justification::centredLeft, false);
 
@@ -64,32 +101,16 @@ void WaspMeter::paintFrame (juce::Graphics& g, juce::Rectangle<int> area)
 
     auto plot = inner.reduced (12, 12).withTrimmedLeft (4);
     paintTicks (g, plot);
-    paintReference (g, plot);
-    paintReductionCurve (g, plot);
 }
 
 void WaspMeter::paintTicks (juce::Graphics& g, juce::Rectangle<int> plot)
 {
-    // Six physical marks at the labelled frequency positions along the
-    // frame's bottom inside edge. The slot math matches paintLabels so the
-    // ticks sit directly above the numerals.
-    const int slots  = 6;
-    const float step = static_cast<float> (plot.getWidth()) / static_cast<float> (slots - 1);
-
     g.setColour (theme::inkMeta.withAlpha (0.6f));
-    for (int i = 0; i < slots; ++i)
+    for (const float frequency : kFrequencyTicks)
     {
-        const int cx = plot.getX() + juce::roundToInt (i * step);
+        const int cx = juce::roundToInt (xForFrequency (frequency, plot));
         g.fillRect (cx, plot.getBottom() - 5, 1, 5);
     }
-}
-
-float WaspMeter::dbToY (float reductionMagnitudeDb,
-                        juce::Rectangle<int> plot) const noexcept
-{
-    const float t = juce::jlimit (0.0f, 1.0f,
-                                  reductionMagnitudeDb / theme::kReductionScaleMaxDb);
-    return plot.getY() + t * static_cast<float> (plot.getHeight());
 }
 
 void WaspMeter::paintDbScale (juce::Graphics& g, juce::Rectangle<int> area)
@@ -130,133 +151,31 @@ void WaspMeter::paintDbScale (juce::Graphics& g, juce::Rectangle<int> area)
     }
 }
 
-void WaspMeter::paintReference (juce::Graphics& g, juce::Rectangle<int> plot)
-{
-    // Quiet reference spectrum: a single unbroken filled shape in the rule
-    // colour, never highlighted, never animated in v1.
-    juce::Path shape;
-    const float w = static_cast<float> (plot.getWidth());
-
-    shape.startNewSubPath (static_cast<float> (plot.getX()),
-                           static_cast<float> (plot.getBottom()));
-    for (int i = 0; i < kNumColumns; ++i)
-    {
-        const float x = plot.getX() + w * static_cast<float> (i) / static_cast<float> (kNumColumns - 1);
-        const float top = plot.getBottom() - reference[i] * plot.getHeight();
-        if (i == 0)
-            shape.lineTo (x, top);
-        else
-        {
-            const float px = plot.getX() + w * static_cast<float> (i - 1) / static_cast<float> (kNumColumns - 1);
-            const float py = plot.getBottom() - reference[i - 1] * plot.getHeight();
-            shape.cubicTo ((px + x) * 0.5f - (x - px) * 0.15f, py,
-                           (px + x) * 0.5f - (x - px) * 0.15f, top,
-                           x, top);
-        }
-    }
-    shape.lineTo (static_cast<float> (plot.getRight()),
-                  static_cast<float> (plot.getBottom()));
-    shape.closeSubPath();
-
-    g.setColour (theme::rule.withAlpha (0.45f));
-    g.fillPath (shape);
-
-    // The shape's silhouette carries the full token; the mass stays quiet.
-    // Quadratic midpoints smooth the column data so the edge sits next to
-    // the curve without angular facets.
-    juce::Path edge;
-    auto refPoint = [&] (int i)
-    {
-        const float x = plot.getX() + w * static_cast<float> (i) / static_cast<float> (kNumColumns - 1);
-        const float top = plot.getBottom() - reference[i] * plot.getHeight();
-        return juce::Point<float> (x, top);
-    };
-    edge.startNewSubPath (refPoint (0));
-    for (int i = 1; i < kNumColumns; ++i)
-    {
-        const auto a = refPoint (i - 1);
-        const auto b = refPoint (i);
-        edge.quadraticTo (a, (a + b) * 0.5f);
-    }
-    edge.lineTo (refPoint (kNumColumns - 1));
-    g.setColour (theme::rule);
-    g.strokePath (edge, juce::PathStrokeType (1.0f, juce::PathStrokeType::curved));
-}
-
-void WaspMeter::paintReductionCurve (juce::Graphics& g, juce::Rectangle<int> plot)
-{
-    const float w = static_cast<float> (plot.getWidth());
-
-    auto pointFor = [&] (int i)
-    {
-        const float x = plot.getX() + w * static_cast<float> (i) / static_cast<float> (kNumCurvePoints - 1);
-        return juce::Point<float> (x, dbToY (reductionDb[i], plot));
-    };
-
-    juce::Path curve;
-    curve.startNewSubPath (pointFor (0));
-    for (int i = 1; i < kNumCurvePoints; ++i)
-    {
-        const auto p  = pointFor (i);
-        const auto prev = pointFor (i - 1);
-        curve.quadraticTo (prev, p);
-    }
-
-    // Reductions past the damage threshold render in the error colour;
-    // everything above the threshold is primary ink. We draw the full
-    // curve twice with a clip on the error pass, which keeps antialiasing
-    // clean at the crossing point.
-    g.setColour (theme::inkPrimary);
-    g.strokePath (curve, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved));
-
-    // Rows below thresholdY (larger y) are past the damage threshold.
-    const float thresholdY = dbToY (theme::kReductionDamageThresholdDb, plot);
-    {
-        juce::Graphics::ScopedSaveState saved (g);
-        g.reduceClipRegion (plot.getX(), juce::roundToInt (thresholdY),
-                            plot.getWidth(), plot.getBottom() - juce::roundToInt (thresholdY));
-        g.setColour (theme::stateError);
-        g.strokePath (curve, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved));
-    }
-}
-
 void WaspMeter::paintLabels (juce::Graphics& g, juce::Rectangle<int> area)
 {
     auto numericRow = area.removeFromTop (16);
     area.removeFromTop (4);
     auto namedRow = area;
 
-    const juce::StringArray freqs { "1k", "2k", "5k", "8k", "12k", "20k" };
-    const juce::StringArray zones { "BITE", "PLASTIC", "WASP", "SAND", "AIR", "ICE" };
-
-    // Center labels under the plot area (which is inset by the dB scale).
-    auto rowFor = [&] (juce::Rectangle<int> row)
-    {
-        auto r = row;
-        r.removeFromLeft (49);
-        return r.reduced (16, 0).withTrimmedLeft (0);
-    };
-
-    auto labelSlot = [] (juce::Rectangle<int> row, int idx, int count, int width)
-    {
-        const float step = static_cast<float> (row.getWidth()) / static_cast<float> (count - 1);
-        const int   cx   = row.getX() + juce::roundToInt (idx * step);
-        const int   x    = juce::jlimit (row.getX(), row.getRight() - width, cx - width / 2);
-        return juce::Rectangle<int> (x, row.getY(), width, row.getHeight());
-    };
-
     g.setFont (theme::Fonts::mono (9.5f));
     g.setColour (theme::inkMeta);
-    const auto numeric = rowFor (numericRow);
-    for (int i = 0; i < freqs.size(); ++i)
-        g.drawText (freqs[i], labelSlot (numeric, i, freqs.size(), 36),
+    const auto numeric = labelPlot (numericRow);
+    for (size_t i = 0; i < kFrequencyLabels.size(); ++i)
+        g.drawText (kFrequencyLabels[i],
+                    centredLabel (numeric, xForFrequency (kFrequencyTicks[i], numeric), 36),
                     juce::Justification::centred, false);
 
     g.setFont (theme::Fonts::monoLabel (10.0f));
     g.setColour (theme::inkBody);
-    const auto named = rowFor (namedRow);
-    for (int i = 0; i < zones.size(); ++i)
-        g.drawText (zones[i], labelSlot (named, i, zones.size(), 64),
+    const auto named = labelPlot (namedRow);
+    for (size_t i = 0; i < kZoneLabels.size(); ++i)
+    {
+        const float low = dsp::tuning::kCrossoverHz[i];
+        const float high = dsp::tuning::kCrossoverHz[i + 1];
+        const float centreFrequency = std::sqrt (low * high);
+        g.drawText (kZoneLabels[i],
+                    centredLabel (named, xForFrequency (centreFrequency, named), 72),
                     juce::Justification::centred, false);
+    }
 }
 } // namespace cabrot::ui

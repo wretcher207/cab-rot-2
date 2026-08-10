@@ -6,28 +6,22 @@ namespace cabrot::ui
 {
 namespace
 {
-struct KnobSeed { juce::String label; double value; };
-
-// Placeholder values; the APVTS SliderAttachments own the real state.
-constexpr int kSeedCount = KnobRow::kNumKnobs;
-const std::array<KnobSeed, kSeedCount> kSeeds {{
-    { "FIZZ HUNT",     62.0 },
-    { "EDGE PRESERVE", 45.0 },
-    { "CAB SMOOTH",    35.0 },
-    { "DIGITAL SAND",  55.0 },
-    { "AIR ROT",       40.0 },
-    { "REAP MIX",      50.0 },
+const std::array<juce::String, KnobRow::kNumKnobs> kLabels {{
+    "FIZZ HUNT",
+    "EDGE PRESERVE",
+    "CAB SMOOTH",
+    "DIGITAL SAND",
+    "AIR ROT",
+    "REAP MIX",
 }};
 }
 
 KnobRow::KnobRow()
 {
     knobs.reserve (kNumKnobs);
-    for (const auto& seed : kSeeds)
+    for (const auto& label : kLabels)
     {
-        auto knob = std::make_unique<SpectreKnob> (seed.label);
-        knob->getSlider().setValue (seed.value, juce::dontSendNotification);
-        knob->setValueDisplay (seed.value);
+        auto knob = std::make_unique<SpectreKnob> (label);
         addAndMakeVisible (*knob);
         knobs.push_back (std::move (knob));
     }
