@@ -23,10 +23,8 @@ FooterBar::FooterBar()
 {
     addAndMakeVisible (inMeter);
     addAndMakeVisible (outMeter);
-
-    // Placeholder levels until Phase 6 wires live metering.
-    inMeter.setLevel  (0.70f);
-    outMeter.setLevel (0.85f);
+    inMeter.setVisible (false);
+    outMeter.setVisible (false);
 
     aButton.setRadioGroupId (2, juce::dontSendNotification);
     bButton.setRadioGroupId (2, juce::dontSendNotification);
