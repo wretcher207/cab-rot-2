@@ -4,6 +4,14 @@ Date: 2026-08-10. Branch: `facelift-dpd`. Scope: Dead Pixel Design brand
 facelift of the plugin UI. DSP, `PluginProcessor.cpp`, `Source/DSP/`, and
 `tests/` are untouched.
 
+> **Correction, 2026-08-10 (post-review).** Two claims below were overstated
+> and are corrected in place: the resize evidence cited window sizes the
+> constrainer cannot produce, and the `stateError` path was described as
+> "proven by construction" when it is untested. The screenshot and build
+> evidence cited here is not reproducible from a clean checkout because
+> `design/screenshots/` and `build/` are gitignored. The grep-based claims
+> were independently re-run and hold. See `design/CANONICAL-UI.md` §9.
+
 ## Binding document
 
 `dead-pixel-design-v4/brand-kit/AI-BRAND-BRIEF.md`, read in full before any
@@ -134,10 +142,15 @@ inkPrimary, unselected rule + inkMeta.
   banned tokens anywhere outside `.git` and `design/sunder`.
 - Iteration evidence: `design/screenshots/facelift-00-before.png` through
   `facelift-06.png`, each critiqued in chat before the next change.
-  `facelift-final.png`, plus `min.png` at 1000 x 680 and `max.png` at
-  1600 x 1070. Both extremes hold the locked 1.54:1 layout with no
-  clipping: dials cap at 104 px, chrome fonts floor at legibility minimums,
-  main split absorbs the resize slack.
+  `facelift-final.png`, plus `min.png` and `max.png` at the resize
+  extremes. **These files are gitignored (`.gitignore:44`) and are not in
+  the repository; this line is a record of the session, not reproducible
+  evidence.** The extremes the constrainer actually permits are
+  1000 x 650 and 1600 x 1040 (`PluginEditor.cpp:49`); earlier text here
+  said 1000 x 680 and 1600 x 1070, which are off the locked 1.54:1 ratio
+  and unreachable. At the real extremes the layout holds with no clipping:
+  dials cap at 104 px, chrome fonts floor at legibility minimums, main
+  split absorbs the resize slack.
 - `design/CANONICAL-UI.md` rewritten so its colour, radius and typography
   sections describe exactly what now ships.
 
@@ -146,10 +159,22 @@ inkPrimary, unselected rule + inkMeta.
 - The spectral display data is still deterministic placeholder content
   (documented in `Source/UI/WaspMeter.h:52-70`); Phase 6 owns the live
   wiring via `getBandReductionDb()`. Placeholder values stay under the 12
-  dB threshold, so the `stateError` path is proven by construction (clipped
-  second stroke pass) but not yet exercised by real audio.
+  dB threshold, so the `stateError` path is **untested**. The earlier
+  wording "proven by construction" was wrong: the clip boundary rounds to
+  int against a 1.5 px float-stroked path, so the crossing point may leak
+  a pixel of primary ink into damaged territory. Falsify by raising one
+  `reductionDb` entry above 12.0f. See `design/CANONICAL-UI.md` §9.7.
+- The reference spectrum in the same frame is drawn on a normalised 0-1
+  amplitude mapping and does **not** share the dB axis it sits behind.
+  This is the most user-visible open design defect; see
+  `design/CANONICAL-UI.md` §9.1.
+- `mode`, `oversampling` and `deltaListen` have complete UI and no DSP
+  consumer. The Crypt was deleted for the same fault; the standard is
+  currently inconsistent. See `design/CANONICAL-UI.md` §9.5.
 - The `stateLive` breathing in the header mark runs at 30 Hz on a 3 second
   cycle, consistent with "motion is quiet"; it suspends when the component
-  is hidden.
+  is hidden. It is driven by a timer, not by audio state, so it reads LIVE
+  whenever the editor is open. Along with the hardcoded CPU, fizz and meter
+  values, this is tracked in `design/CANONICAL-UI.md` §9.4.
 - `ThemeTest` (`Source/UI/ThemeTest.cpp`) is now a paint-only brand
   reference frame for the same system rather than a Stitch diff target.

@@ -1,11 +1,16 @@
 # Cab Rot: Canonical UI
 
-**Status**: rewritten 2026-08-10 for the Dead Pixel Design facelift. Layout
-geometry, region sizes, spacing and component dimensions below remain
-authoritative. All colour, radius and typography rules have been replaced to
-match the DPD brand kit
-(`dead-pixel-design-v4/brand-kit/AI-BRAND-BRIEF.md`), which is the binding
-document for anything visual.
+**Status**: rewritten 2026-08-10 for the Dead Pixel Design facelift, then
+amended 2026-08-10 after a hostile review (see §9). Layout geometry, region
+sizes, spacing and component dimensions below remain authoritative. All
+colour, radius and typography rules have been replaced to match the DPD
+brand kit (`dead-pixel-design-v4/brand-kit/AI-BRAND-BRIEF.md`), which is the
+binding document for anything visual.
+
+**Read §9 before trusting §7.** Several clauses below describe intent that
+the shipping code does not yet honour. Each divergence is listed in §9 with
+the file and line that contradicts it. Where §9 and §1-§8 disagree, §9
+describes what actually ships.
 
 The Stitch export was the visual reference the old toxic design was ported
 from. It is deleted; git history keeps it. Nothing in this document
@@ -24,7 +29,15 @@ inherits from it anymore.
 | Border radius | 0 everywhere, no exceptions |
 
 The editor expresses the ratio via a single constant `kAspectRatio` so
-default size and constrainer cannot drift apart.
+default size and constrainer cannot drift apart. Min and max are the only
+reachable extremes: 1000 x 650 and 1600 x 1040, both on the locked ratio.
+Any figure other than these two (earlier notes cited 1000 x 680 and
+1600 x 1070) describes a window the constrainer cannot produce.
+
+One caveat in the resize implementation: `PluginEditor.cpp:210` derives the
+320 px right column from the *height* scale factor. This is correct output
+only because the aspect ratio is locked. If the lock is ever relaxed, that
+line must be rewritten against width first (§9.2).
 
 ---
 
@@ -105,7 +118,10 @@ spacing.
 
 Scanlines are the only texture. They are permitted inside the spectral
 display frame only, rendered by `SpectreLookAndFeel::drawScanlines` at 5
-percent opacity, 3 px spacing. Nothing else in the window has texture,
+percent opacity, 3 px spacing. The helper's default `spacing = 4`
+(`SpectreLookAndFeel.h:56`) is wrong against this rule; it is unreachable
+today because the only call site passes 3 explicitly, so it is a latent
+trap rather than a live defect (§9.6). Nothing else in the window has texture,
 gradients, vignettes, shadows, or emissive effects.
 
 ---
@@ -128,7 +144,8 @@ bars, and the knob arcs render as stroked paths with no filled bodies.
   "DEAD PIXEL HARMONIX" in mono-label, inkMeta.
 - Right cluster: "CPU" mono-label inkMeta + value in mono, inkBody; live
   indicator (small square in stateLive, breathing between 70 and 100
-  percent on a 3 second cycle, no ornament; "LIVE" label in inkMeta);
+  percent on a 3 second cycle, no ornament; "LIVE" label in inkMeta;
+  the shipping amplitude is 40 to 100 percent, `LivePill.cpp:53`, see §9.6);
   Delta Listen ghost icon.
 
 ### 7.2 WaspMeter (left of MainSplit)
@@ -139,9 +156,16 @@ The single focal event of the editor.
 - Scanlines inside the frame only, 5 percent opacity.
 - dB scale down the left inside the frame (0, -6, -12, -18, -24 dB),
   mono 9.5 px, inkMeta. Horizontal guides at 40 percent `rule`; the -12 dB
-  guide draws at full `rule` because it marks the damage threshold.
+  guide draws at full `rule` because it marks the damage threshold. The
+  scale is linear in dB over `kReductionScaleMaxDb` (24 dB) and governs the
+  reduction curve only. Guides currently run to the component's right edge
+  rather than the frame's inside edge (§9.3).
 - Input spectrum behind everything: one smooth quiet shape, filled at 45
-  percent `rule` with a 1 px full-`rule` silhouette edge.
+  percent `rule` with a 1 px full-`rule` silhouette edge. **It does not
+  share the dB axis.** It is drawn on a normalised 0-1 amplitude mapping
+  (`WaspMeter.cpp:145`), so its height is not readable against the dB
+  labels. It is a texture indicating where energy sits across frequency,
+  not a measurement. §9.1 owns resolving this.
 - The gain-reduction curve is the primary line: inkPrimary, 1.5 px,
   no glow. Segments past the 12 dB threshold render in stateError via a
   clipped second pass.
@@ -161,6 +185,8 @@ hairlines and spacing.
 FIZZ section (192 px tall):
 - mono-label header "FIZZ AMOUNT", inkMeta.
 - Hero number in JetBrains Mono, capped at 72 px, inkPrimary, no glow.
+  Ships as a hardcoded `66.1` (`FizzReadout.h:19-21`), a value inherited
+  from the deleted Stitch reference. §9.4 owns this.
 - Percent sign at about a third of the number height, inkMeta, on the
   number's baseline.
 - A 1 px `rule` hairline separates the section from AMP PROFILE.
@@ -183,13 +209,17 @@ AMP PROFILE section (fills remaining height):
 - Dial, drawn by `SpectreLookAndFeel::drawRotarySlider`: 1 px track arc
   in `rule`, 1.5 px value arc in inkPrimary, 1 px indicator line in
   inkPrimary (inkDisabled when the control is off). No filled body, no
-  gradient, no bevel, no ring glow. Dials size between 56 and 104 px.
+  gradient, no bevel, no ring glow. Dials size between 56 and 104 px
+  (`SpectreKnob.cpp:71-77`; the "cap at 96" comment there is stale, §9.6).
 
 ### 7.5 FooterBar (48 px tall)
 
 - Top edge: 1 px hairline in `rule`. Ground: canvas.
 - Left: IN/OUT meters. Mono-label in inkMeta, then a square bar: surface3
-  track with 1 px `rule` frame, fill in stateLive at 85 percent.
+  track with 1 px `rule` frame, fill in stateLive. The 0.70 / 0.85 fills
+  and the 12 px width difference between IN and OUT are placeholder
+  artefacts, not design intent (`FooterBar.cpp:30-31`, `:96-99`); both
+  meters should be equal width once Phase 6 wires real levels (§9.4).
 - Center: A/B toggle, two square hairline buttons sharing a border.
   Selected side: inkPrimary border + text.
 - Right: "OS:" mono-label + oversampling combo (square hairline, mono
@@ -226,3 +256,149 @@ Square, hairline, no fill, per 7.3. Labels in mono-label 11 px.
 | 8 | Palette is the DPD brand kit, hand-maintained in `Source/Theme/Palette.h` |
 | 9 | Border radius 0 everywhere; every border is a 1 px hairline in `rule` |
 | 10 | Damage threshold 12 dB of reduction in any band (stateError) |
+
+Decisions 2 and 3, and the six amp profiles in §7.3, are locked *interface*
+decisions only. No DSP code reads `mode`, `oversampling` or `deltaListen`
+today; see §9.5.
+
+---
+
+## 9. Known divergences and open defects
+
+Added 2026-08-10 after a hostile review of this spec and its implementation.
+Everything here is a place where the document above, the facelift report, or
+the shipping code makes a claim the other two do not support. Ordered by how
+much a user would be misled.
+
+### 9.1 The spectral display plots two curves on one axis, and only one of them respects it
+
+The dB scale (`WaspMeter.cpp:99-107`) labels 0/-6/-12/-18/-24 evenly across
+the plot, and `dbToY` (`:90`) maps the reduction curve linearly over
+`kReductionScaleMaxDb`. Those agree. The input reference spectrum does not
+participate: `:145` and `:171` place it at
+`plot.getBottom() - reference[i] * plot.getHeight()`, a raw 0-1 amplitude.
+
+So the frame carries one labelled vertical axis and two unrelated vertical
+mappings. A user reading the reference shape against the "-12 dB" label
+reads a number that means nothing. §7.2 previously described this as "a real
+dB scale" without qualification, which was the single most misleading
+sentence in the document.
+
+Resolution, required before Phase 6 ships live data, pick one:
+- **(a)** Convert the reference to the same dB domain and scale, so both
+  curves are readable against the labels. Preferred.
+- **(b)** Keep the reference as pure texture and move the dB labels visually
+  onto the reduction curve's ownership, e.g. tie the guides to the curve and
+  make the reference obviously non-metric (lower alpha, no silhouette edge).
+
+Until one of those lands, §7.2 must keep saying the reference is texture.
+
+### 9.2 The resize evidence described windows that cannot exist
+
+`FACELIFT-REPORT.md:137-140` cited `min.png` at 1000 x 680 and `max.png` at
+1600 x 1070. Neither is on the locked 1.5385 ratio, and neither matches
+`setResizeLimits (1000, 650, 1600, 1040)` (`PluginEditor.cpp:49`). The
+reachable extremes are 1000 x 650 and 1600 x 1040. §1 now states this.
+
+Separately, `PluginEditor.cpp:210` scales the right column width by the
+height ratio. Correct only under the aspect lock. Flagged in §1.
+
+### 9.3 Evidence cited in the facelift report is not reproducible
+
+`design/screenshots/` is gitignored (`.gitignore:44`), so every screenshot
+the report cites as iteration evidence is absent from the repository.
+`build/` does not exist in a fresh checkout, so the five-target build result
+and the two test-binary exit codes cannot be re-observed either.
+
+The claims that *are* reproducible are the greps, and those were re-run
+during this review and hold: no `RoundedRectangle`, no glow or shadow, no
+colour literal outside `Palette.h` except `Colours::transparentBlack` in
+LookAndFeel seeding and one `Colours::black` in `ThemeTestApp.cpp`.
+
+Anyone re-verifying this facelift should treat the grep claims as confirmed
+and the build/screenshot claims as unverified. Future reports must either
+commit their evidence or stop citing it.
+
+Also in this area: the dB guide lines are drawn to
+`getLocalBounds().getRight()` (`WaspMeter.cpp:119-120`, `:127-128`) rather
+than the frame's inside edge, so they cross the 1 px frame that §7.2 says is
+the only thing framing the plot.
+
+### 9.4 The interface currently displays four fabricated values
+
+None of these are wired to anything:
+
+| Element | Hardcoded value | Site |
+|---|---|---|
+| Fizz hero number | `66.1` | `FizzReadout.h:19-21` |
+| Header CPU | `4.2%` | `HeaderBar.h:30-32` |
+| IN / OUT meters | `0.70` / `0.85` | `FooterBar.cpp:30-31` |
+| Spectral display | 16-column reference + 24-point curve | `WaspMeter.h:47-61` |
+
+Meanwhile the header LIVE indicator breathes on a timer whenever the editor
+is visible, regardless of whether audio is running. For a design whose
+stated posture is instrument-grade honesty, that combination is the most
+serious open issue in the product, independent of any brand rule.
+
+The fizz `66.1` is additionally a direct inheritance from the Stitch
+reference that the header of this document declares deleted and no longer
+inherited from. Both statements cannot be true; the code is right.
+
+Phase 6 owns all of these. Until then, no screenshot of this UI should be
+presented as showing plugin behaviour.
+
+### 9.5 Three parameters have full UI and no consumer
+
+`mode`, `oversampling` and `deltaListen` are declared in
+`buildParameterLayout` and fully wired to controls in
+`PluginEditor::wireAttachments`, but nothing in `Source/DSP/` reads them.
+The six amp profiles are the visual centre of the right panel and change
+nothing audible.
+
+This matters as a consistency problem: The Crypt was deleted from the footer
+on the stated grounds that its button opened nothing
+(`FACELIFT-REPORT.md:116`). The same standard applied to the amp profile
+grid would delete or visibly disable it. Choose one standard. The
+recommendation is to keep the controls (they are locked decisions with
+Phase 6/7 owners) and render unwired controls in `inkDisabled` until their
+DSP lands, which is honest and costs one predicate per control.
+
+### 9.6 Stale comments and small contradictions
+
+| Site | Says | Actually |
+|---|---|---|
+| `LivePill.cpp:53` | "between 40 and 100 percent" | `0.70 + 0.30*sin` = 40 to 100; §7.1 said 70 to 100. §7.1 corrected. |
+| `SpectreKnob.cpp:72-73` | "cap the dial at 96" | caps at 104 |
+| `HeaderBar.h:14` | header reads "BY DEAD PIXEL DESIGN" | draws "DEAD PIXEL HARMONIX" |
+| `SpectreLookAndFeel.h:56` | `spacing = 4` default | rule is 3; unreachable, only call site passes 3 |
+| `FizzReadout.h:8-11` | "static 66.1% from Stitch" | contradicts the Stitch-deleted claim at the top of this file |
+
+Also: `Fonts::displayScaled`, `monoScaled` and `monoLabelScaled` are dead
+code (only `wordmarkScaled` has a call site), and `KnobRow.cpp:49` uses
+integer cell division, dropping up to 5 px on the right edge at arbitrary
+widths in a layout that otherwise insists on a 4 px spacing atom.
+
+### 9.7 The stateError path is unproven, not "proven by construction"
+
+`FACELIFT-REPORT.md:148-150` concedes the damage path is never exercised
+because placeholder reductions stay under 12 dB, then asserts it is proven
+by construction. It is not. `paintReductionCurve:216` clips with
+`juce::roundToInt (thresholdY)` against a 1.5 px float-stroked path, so the
+crossing point can leave up to a pixel of `inkPrimary` inside damaged
+territory, which is exactly the seam the two-pass render exists to avoid.
+
+This is cheap to falsify: set one entry of `reductionDb` above 12.0f and
+look. Do that before claiming the path works.
+
+---
+
+## 10. Amendment log
+
+- **2026-08-10, post-review**: §9 added. §1 gained the reachable-extremes
+  note and the right-column scaling caveat. §5 gained the scanline default
+  discrepancy. §7.1 corrected the LIVE pulse range to match the code. §7.2
+  now states that the reference spectrum does not share the dB axis. §7.3
+  and §7.5 now mark their placeholder values as placeholders. §7.4 notes the
+  stale dial-cap comment. §8 notes that decisions 2, 3 and the amp profiles
+  are interface-only until their DSP lands.
+
