@@ -461,7 +461,20 @@ void testCpuBudget (Report& report)
     const double idle    = measure (false);
     const double working = measure (true);
 
-    report.check (working < 3.0, "worst case costs under 3% of a core at 48 kHz stereo");
+    // This is the one check in the file that measures the machine rather than
+    // the code, so a loaded box fails it while the DSP is untouched. Filming
+    // with OBS and a capture card running pushed the same binary from 2.7% to
+    // 4.0% across three consecutive runs. Set CABROT_SKIP_CPU_BENCH=1 when the
+    // machine is busy, and read the printed figures instead of the gate.
+    if (juce::SystemStats::getEnvironmentVariable ("CABROT_SKIP_CPU_BENCH", {}).isNotEmpty())
+    {
+        report.note ("CPU budget check SKIPPED via CABROT_SKIP_CPU_BENCH");
+    }
+    else
+    {
+        report.check (working < 3.0, "worst case costs under 3% of a core at 48 kHz stereo");
+    }
+
     report.note ("all bands wide open " + juce::String (working, 3) + "%, idle split alone "
                  + juce::String (idle, 3) + "%, so reduction costs "
                  + juce::String (working - idle, 3) + "%");
