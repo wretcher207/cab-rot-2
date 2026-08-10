@@ -2,6 +2,8 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include <array>
+
 namespace cabrot::ui
 {
 // The spectral display is the single focal event of the editor.
@@ -20,6 +22,10 @@ public:
     WaspMeter();
     ~WaspMeter() override = default;
 
+    void updateBandReduction (const std::array<float, 4>& reductionDb,
+                              bool engineLive,
+                              float elapsedSeconds);
+
     void paint   (juce::Graphics&) override;
     void resized() override;
 
@@ -28,7 +34,12 @@ private:
     void paintFrame   (juce::Graphics&, juce::Rectangle<int>);
     void paintDbScale (juce::Graphics&, juce::Rectangle<int>);
     void paintTicks   (juce::Graphics&, juce::Rectangle<int>);
+    void paintColumns (juce::Graphics&, juce::Rectangle<int>);
     void paintLabels  (juce::Graphics&, juce::Rectangle<int>);
+
+    std::array<float, 4> displayedReductionDb {};
+    std::array<float, 4> heldPeakDb {};
+    std::array<float, 4> holdRemainingSeconds {};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (WaspMeter)
 };

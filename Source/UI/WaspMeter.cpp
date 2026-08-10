@@ -48,6 +48,52 @@ WaspMeter::WaspMeter()
     setOpaque (false);
 }
 
+void WaspMeter::updateBandReduction (const std::array<float, 4>& reductionDb,
+                                     bool engineLive,
+                                     float elapsedSeconds)
+{
+    constexpr float kReleaseDbPerSecond = 24.0f;
+    constexpr float kPeakHoldSeconds = 0.8f;
+
+    const float dt = juce::jlimit (0.0f, 0.25f, elapsedSeconds);
+    bool changed = false;
+
+    for (size_t i = 0; i < displayedReductionDb.size(); ++i)
+    {
+        const float target = engineLive
+            ? juce::jlimit (0.0f, theme::kReductionScaleMaxDb, reductionDb[i])
+            : 0.0f;
+
+        const float previousDisplay = displayedReductionDb[i];
+        displayedReductionDb[i] = target >= previousDisplay
+            ? target
+            : juce::jmax (target, previousDisplay - kReleaseDbPerSecond * dt);
+
+        const float previousPeak = heldPeakDb[i];
+        if (target > heldPeakDb[i])
+        {
+            heldPeakDb[i] = target;
+            holdRemainingSeconds[i] = kPeakHoldSeconds;
+        }
+        else if (holdRemainingSeconds[i] > 0.0f)
+        {
+            holdRemainingSeconds[i] = juce::jmax (0.0f, holdRemainingSeconds[i] - dt);
+        }
+        else
+        {
+            heldPeakDb[i] = juce::jmax (displayedReductionDb[i],
+                                        heldPeakDb[i] - kReleaseDbPerSecond * dt);
+        }
+
+        changed = changed
+            || std::abs (displayedReductionDb[i] - previousDisplay) >= 0.01f
+            || std::abs (heldPeakDb[i] - previousPeak) >= 0.01f;
+    }
+
+    if (changed)
+        repaint();
+}
+
 void WaspMeter::paint (juce::Graphics& g)
 {
     auto area = getLocalBounds();
@@ -97,10 +143,48 @@ void WaspMeter::paintFrame (juce::Graphics& g, juce::Rectangle<int> area)
     // The plot area leaves room on the left for the dB scale.
     auto inner   = area.reduced (1);
     auto scale   = inner.removeFromLeft (48);
-    paintDbScale (g, scale);
 
     auto plot = inner.reduced (12, 12).withTrimmedLeft (4);
+    paintColumns (g, plot);
+    paintDbScale (g, scale);
     paintTicks (g, plot);
+}
+
+void WaspMeter::paintColumns (juce::Graphics& g, juce::Rectangle<int> plot)
+{
+    auto reductionY = [plot] (float db)
+    {
+        const float t = juce::jlimit (0.0f, 1.0f, db / theme::kReductionScaleMaxDb);
+        return static_cast<float> (plot.getY()) + t * static_cast<float> (plot.getHeight());
+    };
+
+    for (size_t i = 0; i < displayedReductionDb.size(); ++i)
+    {
+        const float x0 = xForFrequency (dsp::tuning::kCrossoverHz[i], plot) + 1.0f;
+        const float x1 = xForFrequency (dsp::tuning::kCrossoverHz[i + 1], plot) - 1.0f;
+        const float y = reductionY (displayedReductionDb[i]);
+
+        if (displayedReductionDb[i] > 0.01f)
+        {
+            g.setColour (theme::surface3);
+            g.fillRect (juce::Rectangle<float> (x0,
+                                                 static_cast<float> (plot.getY()),
+                                                 juce::jmax (1.0f, x1 - x0),
+                                                 y - static_cast<float> (plot.getY())));
+
+            g.setColour (displayedReductionDb[i] > theme::kReductionDamageThresholdDb
+                             ? theme::stateError
+                             : theme::inkPrimary);
+            g.drawLine (x0, y, x1, y, 1.5f);
+        }
+
+        if (heldPeakDb[i] > displayedReductionDb[i] + 0.01f)
+        {
+            const float peakY = reductionY (heldPeakDb[i]);
+            g.setColour (theme::inkBody.withAlpha (0.6f));
+            g.drawLine (x0, peakY, x1, peakY, 1.0f);
+        }
+    }
 }
 
 void WaspMeter::paintTicks (juce::Graphics& g, juce::Rectangle<int> plot)
