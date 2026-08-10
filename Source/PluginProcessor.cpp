@@ -1,10 +1,26 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <cmath>
+
 namespace cabrot
 {
 namespace
 {
+constexpr float kEngineLiveThresholdDb = -72.0f;
+constexpr double kEngineLiveHoldSeconds = 1.0;
+
+void publishMaximum (std::atomic<float>& mailbox, float value) noexcept
+{
+    auto current = mailbox.load (std::memory_order_relaxed);
+    while (value > current
+           && ! mailbox.compare_exchange_weak (current, value,
+                                                std::memory_order_relaxed,
+                                                std::memory_order_relaxed))
+    {
+    }
+}
+
 juce::AudioParameterFloatAttributes percentAttrs()
 {
     return juce::AudioParameterFloatAttributes()
@@ -112,12 +128,16 @@ CabRotProcessor::CabRotProcessor()
     p.pickWindow   = apvts.getRawParameterValue (params::pickWindow);
     p.autoGain     = apvts.getRawParameterValue (params::autoGain);
 
-    for (auto& r : bandReductionDb)
-        r.store (0.0f, std::memory_order_relaxed);
+    for (auto& value : bandReductionDb)
+        value.store (0.0f, std::memory_order_relaxed);
+
+    for (auto& value : uiBandReductionMax)
+        value.store (0.0f, std::memory_order_relaxed);
 }
 
 void CabRotProcessor::prepareToPlay (double sampleRate, int maximumExpectedSamplesPerBlock)
 {
+    preparedSampleRate = sampleRate;
     preparedChannels  = juce::jmax (1, getTotalNumInputChannels());
     preparedBlockSize = juce::jmax (32, maximumExpectedSamplesPerBlock);
 
@@ -148,12 +168,28 @@ void CabRotProcessor::prepareToPlay (double sampleRate, int maximumExpectedSampl
     outputStage.snapToTarget();
     mixer.reset();
 
+    for (auto& value : bandReductionDb)
+        value.store (0.0f, std::memory_order_relaxed);
+    discardUiPeakTelemetry();
+    cpuPercent.store (-1.0f, std::memory_order_relaxed);
+    lastInputActivityTicks.store (0, std::memory_order_relaxed);
+    cpuLoadEma = 0.0;
+    cpuLoadEmaSeeded = false;
+
     isPrepared = true;
 }
 
 void CabRotProcessor::releaseResources()
 {
     isPrepared = false;
+
+    discardUiPeakTelemetry();
+    for (auto& value : bandReductionDb)
+        value.store (0.0f, std::memory_order_relaxed);
+    cpuPercent.store (-1.0f, std::memory_order_relaxed);
+    lastInputActivityTicks.store (0, std::memory_order_relaxed);
+    cpuLoadEma = 0.0;
+    cpuLoadEmaSeeded = false;
 
     splitter.reset();
     mixer.reset();
@@ -179,6 +215,38 @@ float CabRotProcessor::getBandReductionDb (int processedBand) const noexcept
         return 0.0f;
 
     return bandReductionDb[(size_t) processedBand].load (std::memory_order_relaxed);
+}
+
+CabRotProcessor::UiTelemetry CabRotProcessor::consumeUiTelemetry() noexcept
+{
+    UiTelemetry result;
+
+    for (size_t i = 0; i < result.bandReductionDb.size(); ++i)
+        result.bandReductionDb[i] = uiBandReductionMax[i].exchange (0.0f,
+                                                                    std::memory_order_relaxed);
+
+    result.inputPeak = uiInputPeak.exchange (0.0f, std::memory_order_relaxed);
+    result.outputPeak = uiOutputPeak.exchange (0.0f, std::memory_order_relaxed);
+    result.cpuPercent = cpuPercent.load (std::memory_order_relaxed);
+
+    const auto lastLive = lastInputActivityTicks.load (std::memory_order_relaxed);
+    if (lastLive > 0)
+    {
+        const auto ageTicks = juce::Time::getHighResolutionTicks() - lastLive;
+        result.engineLive = ageTicks >= 0
+            && juce::Time::highResolutionTicksToSeconds (ageTicks) <= kEngineLiveHoldSeconds;
+    }
+
+    return result;
+}
+
+void CabRotProcessor::discardUiPeakTelemetry() noexcept
+{
+    for (auto& value : uiBandReductionMax)
+        value.exchange (0.0f, std::memory_order_relaxed);
+
+    uiInputPeak.exchange (0.0f, std::memory_order_relaxed);
+    uiOutputPeak.exchange (0.0f, std::memory_order_relaxed);
 }
 
 void CabRotProcessor::updateDspParameters() noexcept
@@ -274,7 +342,9 @@ void CabRotProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     if (numChannels <= 0)
         return;
 
+    const auto startedAt = juce::Time::getHighResolutionTicks();
     updateDspParameters();
+    BlockTelemetry telemetry;
 
     // Hosts are supposed to honour the block size they announced, but a
     // longer block should thin the sound rather than run off the end of the
@@ -288,13 +358,54 @@ void CabRotProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
                                         offset,
                                         chunk);
 
-        processChunk (slice, numChannels, chunk);
+        processChunk (slice, numChannels, chunk, telemetry);
+    }
+
+    const auto finishedAt = juce::Time::getHighResolutionTicks();
+
+    for (size_t i = 0; i < telemetry.bandReductionDb.size(); ++i)
+    {
+        bandReductionDb[i].store (telemetry.bandReductionDb[i], std::memory_order_relaxed);
+        publishMaximum (uiBandReductionMax[i], telemetry.bandReductionDb[i]);
+    }
+
+    publishMaximum (uiInputPeak, telemetry.inputPeak);
+    publishMaximum (uiOutputPeak, telemetry.outputPeak);
+
+    const float liveThreshold = juce::Decibels::decibelsToGain (kEngineLiveThresholdDb);
+    if (telemetry.inputPeak >= liveThreshold)
+        lastInputActivityTicks.store (finishedAt, std::memory_order_relaxed);
+
+    const double blockSeconds = static_cast<double> (numSamples) / preparedSampleRate;
+    if (blockSeconds > 0.0)
+    {
+        const double elapsed = juce::Time::highResolutionTicksToSeconds (finishedAt - startedAt);
+        const double instantLoad = elapsed / blockSeconds;
+
+        if (std::isfinite (instantLoad))
+        {
+            if (! cpuLoadEmaSeeded)
+            {
+                cpuLoadEma = instantLoad;
+                cpuLoadEmaSeeded = true;
+            }
+            else
+            {
+                cpuLoadEma += (instantLoad - cpuLoadEma) / 32.0;
+            }
+
+            cpuPercent.store (static_cast<float> (cpuLoadEma * 100.0),
+                              std::memory_order_relaxed);
+        }
     }
 }
 
-void CabRotProcessor::processChunk (juce::AudioBuffer<float>& block, int numChannels, int numSamples) noexcept
+void CabRotProcessor::processChunk (juce::AudioBuffer<float>& block, int numChannels,
+                                    int numSamples, BlockTelemetry& telemetry) noexcept
 {
     inputStage.process (block, numChannels, numSamples);
+    telemetry.inputPeak = juce::jmax (telemetry.inputPeak,
+                                      block.getMagnitude (0, numSamples));
 
     splitter.process (block, bandBuffers, numChannels, numSamples);
 
@@ -323,7 +434,8 @@ void CabRotProcessor::processChunk (juce::AudioBuffer<float>& block, int numChan
                                                                    numChannels,
                                                                    numSamples);
 
-        bandReductionDb[(size_t) i].store (reduced, std::memory_order_relaxed);
+        telemetry.bandReductionDb[(size_t) i] = juce::jmax (
+            telemetry.bandReductionDb[(size_t) i], reduced);
 
         for (int ch = 0; ch < numChannels; ++ch)
             deltaBuffer.addFrom (ch, 0, band, ch, 0, numSamples);
@@ -332,6 +444,8 @@ void CabRotProcessor::processChunk (juce::AudioBuffer<float>& block, int numChan
     mixer.process (block, deltaBuffer, numChannels, numSamples);
 
     outputStage.process (block, numChannels, numSamples);
+    telemetry.outputPeak = juce::jmax (telemetry.outputPeak,
+                                       block.getMagnitude (0, numSamples));
 }
 
 juce::AudioProcessorEditor* CabRotProcessor::createEditor()

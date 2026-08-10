@@ -77,15 +77,35 @@ public:
     juce::AudioProcessorValueTreeState& getApvts() noexcept { return apvts; }
     juce::UndoManager&                  getUndoManager() noexcept { return undoManager; }
 
-    /** Peak reduction on one of the four processed bands, in dB. Phase 6
-        reads this for the Wasp Meter; nothing draws it yet. */
+    struct UiTelemetry
+    {
+        std::array<float, dsp::tuning::kNumProcessedBands> bandReductionDb {};
+        float inputPeak { 0.0f };
+        float outputPeak { 0.0f };
+        float cpuPercent { -1.0f };
+        bool engineLive { false };
+    };
+
+    /** Latest complete host-block reduction for diagnostics. */
     float getBandReductionDb (int processedBand) const noexcept;
+
+    /** Consumes maxima accumulated since the previous UI poll. */
+    UiTelemetry consumeUiTelemetry() noexcept;
+    void discardUiPeakTelemetry() noexcept;
 
 private:
     static juce::AudioProcessorValueTreeState::ParameterLayout buildParameterLayout();
 
+    struct BlockTelemetry
+    {
+        std::array<float, dsp::tuning::kNumProcessedBands> bandReductionDb {};
+        float inputPeak { 0.0f };
+        float outputPeak { 0.0f };
+    };
+
     void updateDspParameters() noexcept;
-    void processChunk (juce::AudioBuffer<float>& block, int numChannels, int numSamples) noexcept;
+    void processChunk (juce::AudioBuffer<float>& block, int numChannels,
+                       int numSamples, BlockTelemetry& telemetry) noexcept;
 
     juce::UndoManager undoManager;
     juce::AudioProcessorValueTreeState apvts { *this, &undoManager,
@@ -108,7 +128,16 @@ private:
     juce::AudioBuffer<float> deltaBuffer;
     std::vector<float>       gateScratch;
 
-    std::array<std::atomic<float>, numProcessedBands> bandReductionDb { { {}, {}, {}, {} } };
+    std::array<std::atomic<float>, numProcessedBands> bandReductionDb;
+    std::array<std::atomic<float>, numProcessedBands> uiBandReductionMax;
+    std::atomic<float> uiInputPeak { 0.0f };
+    std::atomic<float> uiOutputPeak { 0.0f };
+    std::atomic<float> cpuPercent { -1.0f };
+    std::atomic<juce::int64> lastInputActivityTicks { 0 };
+
+    double cpuLoadEma { 0.0 };
+    double preparedSampleRate { 48000.0 };
+    bool cpuLoadEmaSeeded { false };
 
     // Resolved once in the constructor. Reading these per block avoids a
     // string lookup on the audio thread.

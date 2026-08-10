@@ -400,7 +400,41 @@ void testDenormalsFlush (Report& report)
 }
 
 // --------------------------------------------------------------------------
-// 9. CPU. One instance, stereo, 48 kHz, everything working hard.
+// 9. UI telemetry must aggregate a full host block, not only its last slice.
+// --------------------------------------------------------------------------
+void testUiTelemetry (Report& report)
+{
+    constexpr double sr = 48000.0;
+    constexpr int preparedBlock = 512;
+    constexpr int oversizedHostBlock = 1536;
+
+    CabRotProcessor processor;
+    prepareStereo (processor, sr, preparedBlock);
+    setNeutral (processor);
+    processor.discardUiPeakTelemetry();
+
+    juce::AudioBuffer<float> buffer (2, oversizedHostBlock);
+    buffer.clear();
+    buffer.setSample (0, 0, 0.75f);
+    buffer.setSample (1, 0, -0.75f);
+
+    juce::MidiBuffer midi;
+    processor.processBlock (buffer, midi);
+
+    const auto first = processor.consumeUiTelemetry();
+    report.check (first.inputPeak > 0.70f,
+                  "UI telemetry keeps a first-slice peak across an oversized host block");
+    report.check (first.engineLive, "UI telemetry reports recent input as live");
+    report.check (std::isfinite (first.cpuPercent) && first.cpuPercent >= 0.0f,
+                  "UI telemetry publishes a finite measured CPU value");
+
+    const auto consumed = processor.consumeUiTelemetry();
+    report.check (consumed.inputPeak == 0.0f,
+                  "UI peak telemetry is consumed exactly once");
+}
+
+// --------------------------------------------------------------------------
+// 10. CPU. One instance, stereo, 48 kHz, everything working hard.
 // --------------------------------------------------------------------------
 void testCpuBudget (Report& report)
 {
@@ -499,6 +533,7 @@ int main()
         testSampleRates (report);
         testBlockSizes (report);
         testDenormalsFlush (report);
+        testUiTelemetry (report);
         testCpuBudget (report);
     }
     catch (const std::exception& e)

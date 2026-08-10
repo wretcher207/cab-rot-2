@@ -15,7 +15,8 @@ namespace cabrot::theme { class SpectreLookAndFeel; }
 namespace cabrot
 {
 class CabRotEditor final : public juce::AudioProcessorEditor,
-                           private juce::KeyListener
+                           private juce::KeyListener,
+                           private juce::Timer
 {
 public:
     explicit CabRotEditor (CabRotProcessor&);
@@ -28,6 +29,8 @@ public:
 
 private:
     void wireAttachments();
+    void timerCallback() override;
+    void setUiAnimationEnabled (bool enabled);
     juce::AudioProcessorValueTreeState& apvts() noexcept { return processorRef.getApvts(); }
 
     CabRotProcessor& processorRef;
@@ -50,6 +53,12 @@ private:
     std::unique_ptr<ButtonAttachment>                  deltaAttachment;
     std::unique_ptr<juce::ParameterAttachment>         abAttachment; // drives both A and B
     std::unique_ptr<ComboBoxAttachment>                osAttachment;
+    std::unique_ptr<juce::ParameterAttachment>         uiAnimationAttachment;
+
+    double lastTimerMs { 0.0 };
+    float fizzSmoothed01 { 0.0f };
+    float clipHoldSeconds { 0.0f };
+    bool fizzSmoothingSeeded { false };
 
     // Mode buttons drive a Choice parameter. JUCE's ButtonAttachment is for
     // bool params, not choices, so we build a small parameter listener that

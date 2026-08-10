@@ -3,6 +3,9 @@
 #include "Theme/Palette.h"
 #include "Theme/SpectreLookAndFeel.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace cabrot
 {
 namespace
@@ -54,6 +57,8 @@ CabRotEditor::CabRotEditor (CabRotProcessor& p)
 
 CabRotEditor::~CabRotEditor()
 {
+    stopTimer();
+    uiAnimationAttachment.reset();
     removeKeyListener (this);
     setLookAndFeel (nullptr);
 }
@@ -160,6 +165,16 @@ void CabRotEditor::wireAttachments()
     osAttachment = std::make_unique<ComboBoxAttachment> (
         av, params::oversampling, footerBar.getOversampleBox());
 
+    auto* animationParam = av.getParameter (params::uiAnimation);
+    jassert (animationParam != nullptr);
+    uiAnimationAttachment = std::make_unique<juce::ParameterAttachment> (
+        *animationParam,
+        [this] (float value)
+        {
+            setUiAnimationEnabled (value >= 0.5f);
+        });
+    uiAnimationAttachment->sendInitialUpdate();
+
     // Tooltips that refresh as the parameter changes. We rely on JUCE's
     // built-in juce::Slider::getTooltip override returning the slider's
     // setTooltip text; the SliderAttachment also routes parameter
@@ -169,6 +184,84 @@ void CabRotEditor::wireAttachments()
     footerBar.getButtonA()     .setTooltip ("A/B: select snapshot A");
     footerBar.getButtonB()     .setTooltip ("A/B: select snapshot B");
     footerBar.getOversampleBox().setTooltip ("Oversampling factor");
+}
+
+void CabRotEditor::setUiAnimationEnabled (bool enabled)
+{
+    if (! enabled)
+    {
+        stopTimer();
+        lastTimerMs = 0.0;
+        return;
+    }
+
+    processorRef.discardUiPeakTelemetry();
+    lastTimerMs = 0.0;
+    startTimerHz (30);
+}
+
+void CabRotEditor::timerCallback()
+{
+    const double nowMs = juce::Time::getMillisecondCounterHiRes();
+    const float elapsedSeconds = lastTimerMs > 0.0
+        ? juce::jlimit (0.0f, 0.25f, static_cast<float> ((nowMs - lastTimerMs) * 0.001))
+        : (1.0f / 30.0f);
+    lastTimerMs = nowMs;
+
+    const auto telemetry = processorRef.consumeUiTelemetry();
+
+    waspMeter.updateBandReduction (telemetry.bandReductionDb,
+                                   telemetry.engineLive,
+                                   elapsedSeconds);
+
+    if (telemetry.engineLive)
+    {
+        const float maxBandReductionDb = *std::max_element (
+            telemetry.bandReductionDb.begin(), telemetry.bandReductionDb.end());
+
+        // fizzPct = smoothed( min(1.0, maxBandReductionDb /
+        // kReductionDamageThresholdDb) ) * 100
+        const float target01 = juce::jmin (
+            1.0f, maxBandReductionDb / theme::kReductionDamageThresholdDb);
+
+        if (! fizzSmoothingSeeded)
+        {
+            fizzSmoothed01 = target01;
+            fizzSmoothingSeeded = true;
+        }
+        else
+        {
+            constexpr float kSmoothingSeconds = 0.14f;
+            const float alpha = 1.0f - std::exp (-elapsedSeconds / kSmoothingSeconds);
+            fizzSmoothed01 += alpha * (target01 - fizzSmoothed01);
+        }
+
+        fizzReadout.setValue (fizzSmoothed01 * 100.0f);
+    }
+    else
+    {
+        fizzSmoothingSeeded = false;
+        fizzSmoothed01 = 0.0f;
+        fizzReadout.setValue (std::nullopt);
+    }
+
+    if (telemetry.outputPeak >= 1.0f)
+        clipHoldSeconds = 1.5f;
+    else
+        clipHoldSeconds = juce::jmax (0.0f, clipHoldSeconds - elapsedSeconds);
+
+    const bool clipping = clipHoldSeconds > 0.0f;
+    footerBar.setLevels (telemetry.inputPeak, telemetry.outputPeak,
+                         elapsedSeconds, clipping);
+    footerBar.setStatusText (clipping ? "CLIPPING"
+                                     : telemetry.engineLive ? "PROCESSING"
+                                                            : "IDLE");
+
+    headerBar.setEngineLive (telemetry.engineLive);
+    if (telemetry.cpuPercent >= 0.0f)
+        headerBar.setCpuPercent (telemetry.cpuPercent);
+    else
+        headerBar.setCpuPercent (std::nullopt);
 }
 
 bool CabRotEditor::keyPressed (const juce::KeyPress& key, juce::Component*)
