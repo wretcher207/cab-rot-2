@@ -63,6 +63,22 @@ ANCHORS = [
     (".gitignore", 45, "design/screenshots/"),
 ]
 
+# Range citations were the blind spot: a range that still fits inside the file
+# passes the existence check even after the code it describes has moved. This
+# was caught for real when adding setTestReduction() to WaspMeter.h shifted
+# the placeholder-data block by 11 lines and the checker stayed green. Anchor
+# the first and last line of every range that section 9 leans on.
+RANGE_ANCHORS = [
+    ("Source/UI/WaspMeter.h", 55, "kNumColumns = 16"),
+    ("Source/UI/WaspMeter.h", 72, "};"),
+    ("Source/UI/WaspMeter.h", 67, "reductionDb[kNumCurvePoints]"),
+    ("Source/UI/FooterBar.cpp", 28, "inMeter.setLevel"),
+    ("Source/UI/FooterBar.cpp", 29, "outMeter.setLevel"),
+    ("Source/UI/WaspMeter.cpp", 99, "StringArray ticks"),
+    ("Source/UI/WaspMeter.cpp", 107, "ticks.size() - 1"),
+]
+ANCHORS = ANCHORS + RANGE_ANCHORS
+
 # The eleven brand tokens, as they appear in Source/Theme/Palette.h and as the
 # brief writes them. Both sides must agree.
 PALETTE_TOKENS = [

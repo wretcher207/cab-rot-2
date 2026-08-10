@@ -28,6 +28,17 @@ public:
     void paint   (juce::Graphics&) override;
     void resized() override;
 
+    // Test-only seam. Overwrites the placeholder reduction data with a flat
+    // magnitude so the damage-threshold rendering can be exercised without
+    // waiting for the Phase 6 DSP wiring. CANONICAL-UI section 9.7 called the
+    // stateError path "proven by construction"; this is what makes it
+    // provable by observation instead. Not called by the plugin.
+    void setTestReduction (float magnitudeDb) noexcept
+    {
+        for (auto& v : reductionDb)
+            v = magnitudeDb;
+    }
+
 private:
     void paintHeader  (juce::Graphics&, juce::Rectangle<int>);
     void paintFrame   (juce::Graphics&, juce::Rectangle<int>);

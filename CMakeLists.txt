@@ -335,6 +335,55 @@ if(CABROT_BUILD_THEME_TEST)
 endif()
 
 # ----------------------------------------------------------------------------
+# RenderTest: headless pixel gate for the WaspMeter
+#
+# Console app, no window and no message loop, so it runs in CI and over a
+# headless session. Exists to make design/CANONICAL-UI.md section 9.7
+# falsifiable: it renders the meter with reduction pushed past the damage
+# threshold and inspects the pixels, instead of asserting the path works
+# "by construction".
+# ----------------------------------------------------------------------------
+option(CABROT_BUILD_RENDER_TEST "Build the headless WaspMeter render gate" ON)
+
+if(CABROT_BUILD_RENDER_TEST)
+    juce_add_console_app(CabRot_RenderTest
+        PRODUCT_NAME "Cab Rot Render Test")
+
+    target_sources(CabRot_RenderTest
+        PRIVATE
+            tests/render_test.cpp
+            Source/UI/WaspMeter.cpp
+            Source/UI/WaspMeter.h
+            Source/Theme/Palette.h
+            Source/Theme/Fonts.h
+            Source/Theme/Fonts.cpp
+            Source/Theme/SpectreLookAndFeel.h
+            Source/Theme/SpectreLookAndFeel.cpp)
+
+    target_include_directories(CabRot_RenderTest PRIVATE Source)
+
+    target_compile_definitions(CabRot_RenderTest
+        PRIVATE
+            JUCE_WEB_BROWSER=0
+            JUCE_USE_CURL=0
+            JUCE_STANDALONE_APPLICATION=1)
+
+    target_link_libraries(CabRot_RenderTest
+        PRIVATE
+            juce::juce_gui_basics
+            juce::juce_graphics
+            CabRotBinaryData
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+
+    if(MSVC)
+        target_compile_options(CabRot_RenderTest PRIVATE /wd4458)
+    endif()
+
+    set_target_properties(CabRot_RenderTest PROPERTIES FOLDER "Tests")
+endif()
+
+# ----------------------------------------------------------------------------
 # Status banner
 # ----------------------------------------------------------------------------
 message(STATUS "")

@@ -309,17 +309,39 @@ height ratio. Correct only under the aspect lock. Flagged in §1.
 
 `design/screenshots/` is gitignored (`.gitignore:45`), so every screenshot
 the report cites as iteration evidence is absent from the repository.
-`build/` does not exist in a fresh checkout, so the five-target build result
-and the two test-binary exit codes cannot be re-observed either.
+`build/` does not exist in a fresh checkout either.
 
-The claims that *are* reproducible are the greps, and those were re-run
-during this review and hold: no `RoundedRectangle`, no glow or shadow, no
-colour literal outside `Palette.h` except `Colours::transparentBlack` in
-LookAndFeel seeding and one `Colours::black` in `ThemeTestApp.cpp`.
+**Update, same day: the build claims have now been independently
+reproduced.** An earlier pass concluded "no toolchain available" from four
+`where` lookups and was wrong: Visual Studio 2022 Build Tools (MSVC 19.44)
+and CMake 3.31.6 are installed on this machine, just not on `PATH`.
+`tools/build-msvc.cmd` activates them. The `JUCE` submodule was also empty;
+`git submodule update` stalled, but the 8.0.12 tarball fetches in seconds
+(the version `CMakeLists.txt:195` already refers to).
 
-Anyone re-verifying this facelift should treat the grep claims as confirmed
-and the build/screenshot claims as unverified. Future reports must either
-commit their evidence or stop citing it.
+Reproduced from a clean `build/`:
+
+| Target | Result |
+|---|---|
+| `CabRot_DspTest` | builds clean, **12 passed, 0 failed**, exit 0 |
+| `CabRot_PassthroughTest` | builds clean, **3 passed, 0 failed**, exit 0 |
+| `CabRot_ThemeTest` | builds clean |
+| `CabRot_VST3` | builds clean, produces `Cab Rot.vst3` |
+| `CabRot_RenderTest` (new) | builds clean, render gate passes, exit 0 |
+
+Zero compiler warnings and zero errors from project sources across all five,
+matching what the report claimed. So the report's build numbers were
+accurate; they were simply unreproducible as written. The screenshots remain
+absent and unverifiable.
+
+The grep claims were re-run during this review and hold: no
+`RoundedRectangle`, no glow or shadow, no colour literal outside `Palette.h`
+except `Colours::transparentBlack` in LookAndFeel seeding and one
+`Colours::black` in `ThemeTestApp.cpp`.
+
+Future reports must either commit their evidence or stop citing it; and
+"the toolchain is missing" deserves more than a `where` lookup before it
+goes in writing.
 
 Partial remedy, added with this amendment: `tools/verify-doc-citations.py`
 checks every `File.ext:N` citation in this document and in
@@ -361,7 +383,7 @@ None of these are wired to anything:
 | Fizz hero number | `66.1` | `FizzReadout.h:24` |
 | Header CPU | `4.2%` | `HeaderBar.h:33` |
 | IN / OUT meters | `0.70` / `0.85` | `FooterBar.cpp:28-29` |
-| Spectral display | 16-column reference + 24-point curve | `WaspMeter.h:44-63` |
+| Spectral display | 16-column reference + 24-point curve | `WaspMeter.h:55-72` |
 
 Meanwhile the header LIVE indicator breathes on a timer whenever the editor
 is visible, regardless of whether audio is running. For a design whose
@@ -406,18 +428,51 @@ code (only `wordmarkScaled` has a call site), and `KnobRow.cpp:49` uses
 integer cell division, dropping up to 5 px on the right edge at arbitrary
 widths in a layout that otherwise insists on a 4 px spacing atom.
 
-### 9.7 The stateError path is unproven, not "proven by construction"
+### 9.7 (superseded) The stateError path was unproven
 
-`FACELIFT-REPORT.md` ("Known honest limits") concedes the damage path is
+The original finding read: the damage path is untested, and
+`WaspMeter.cpp:216` clips with `juce::roundToInt (thresholdY)` against a
+1.5 px float-stroked path, so the crossing point could leave a pixel of
+`inkPrimary` inside damaged territory. That was a reasonable prediction from
+reading the code. It is now measured below and the predicted leak does not
+appear.
+
+### 9.7a The stateError path, now actually exercised
+
+`FACELIFT-REPORT.md` ("Known honest limits") conceded the damage path is
 never exercised because placeholder reductions stay under 12 dB, then
-asserted it was proven by construction. It is not. `WaspMeter.cpp:216` clips
-with `juce::roundToInt (thresholdY)` against a 1.5 px float-stroked path, so
-the crossing point can leave up to a pixel of `inkPrimary` inside damaged
-territory, which is exactly the seam the two-pass render exists to avoid.
-(That report line is now corrected.)
+asserted it was proven by construction. That assertion has now been replaced
+with a measurement.
 
-This is cheap to falsify: set one entry of `reductionDb` above 12.0f and
-look. Do that before claiming the path works.
+`tests/render_test.cpp` (target `CabRot_RenderTest`) renders the WaspMeter
+offscreen and counts pixels by token colour. Results on this machine, MSVC
+19.44, Release:
+
+| Reduction | stateError px | inkPrimary px |
+|---|---|---|
+| shipping placeholder (peak 9.9 dB) | 0 | 481 |
+| flat 11.0 / 11.5 / 11.9 dB | 0 | 742 |
+| flat 12.1 / 12.5 / 13.0 / 14.0 dB | 742 | 0 |
+| flat 18.0 dB | 742 | 0 |
+
+So the two-pass clip **does** work: below the threshold the curve is primary
+ink with zero damage pixels, above it the curve is fully damage-coloured,
+and the damage ink appears only in the lower part of the scale (first error
+row at 0.678 of frame height against a 0.500 threshold fraction). The
+pixel-leak worry in the original review is not observable at any sweep point.
+
+One honest caveat on method, which the sweep itself exposed. At exactly
+12.0 dB both counters read zero, which looks alarming until you note that a
+flat 10.0 dB curve also reads 0/0. A perfectly horizontal 1.5 px stroke
+landing on a pixel boundary is split by antialiasing into two half-alpha
+rows, so neither row matches its token within tolerance. That is a property
+of measuring flat synthetic curves, not a rendering defect. The control at
+10.0 dB is what distinguishes the two, and it is why the sweep is kept in
+the test rather than a single spot check.
+
+What remains unproven: this uses a flat test curve, so the *crossing*
+geometry, a sloped curve passing through the threshold, is still not
+directly measured. Phase 6's real band data will produce that case.
 
 ### 9.8 Checked against the binding brand brief
 
