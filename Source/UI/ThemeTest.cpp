@@ -102,18 +102,6 @@ void ThemeTest::paintHeader (juce::Graphics& g, juce::Rectangle<int> area)
     g.setFont (theme::Fonts::monoLabel (10.5f));
     g.drawText ("DEAD PIXEL HARMONIX", left, juce::Justification::centredLeft, false);
 
-    auto right = inner.removeFromRight (340);
-    right.removeFromRight (36 + 24 + 72 + 24);
-
-    auto cpuValue = right.removeFromRight (52);
-    right.removeFromRight (4);
-    auto cpuLabel = right.removeFromRight (32);
-    g.setFont (theme::Fonts::monoLabel (10.0f));
-    g.setColour (theme::inkMeta);
-    g.drawText ("CPU", cpuLabel, juce::Justification::centredRight, false);
-    g.setFont (theme::Fonts::mono (12.0f, 0.10f));
-    g.drawText ("4.2%", cpuValue, juce::Justification::centredLeft, false);
-
     drawRule (g, inner.withY (area.getBottom() - 1).withHeight (1)
                     .expanded (24, 0));
 }

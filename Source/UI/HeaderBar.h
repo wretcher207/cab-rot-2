@@ -28,10 +28,6 @@ private:
     LivePill     livePill;
     GhostToggle  ghost;
 
-    // PHASE 2 PLACEHOLDER: CPU value is static. Phase 6 wires this to
-    // juce::AudioProcessor::getCpuUsage().
-    juce::String cpuValue { "4.2%" };
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HeaderBar)
 };
 } // namespace cabrot::ui

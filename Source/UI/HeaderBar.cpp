@@ -42,24 +42,6 @@ void HeaderBar::paint (juce::Graphics& g)
     g.setFont   (theme::Fonts::monoLabel (10.5f));
     g.drawText  ("DEAD PIXEL HARMONIX", leftBlock, juce::Justification::centredLeft, false);
 
-    // Right cluster
-    auto rightBlock = inner.removeFromRight (340);
-    rightBlock.removeFromRight (36);                        // GhostToggle reserves ~28 px
-    rightBlock.removeFromRight (24);
-    rightBlock.removeFromRight (72);                        // LivePill slot, positioned in resized()
-    rightBlock.removeFromRight (24);
-
-    auto cpuValueArea = rightBlock.removeFromRight (52);
-    rightBlock.removeFromRight (4);
-    auto cpuLabelArea = rightBlock.removeFromRight (32);
-
-    g.setFont   (theme::Fonts::monoLabel (10.0f));
-    g.setColour (theme::inkMeta);
-    g.drawText  ("CPU", cpuLabelArea, juce::Justification::centredRight, false);
-
-    g.setFont   (theme::Fonts::mono (12.0f, 0.10f));
-    g.setColour (theme::inkBody);
-    g.drawText  (cpuValue, cpuValueArea, juce::Justification::centredLeft, false);
 }
 
 void HeaderBar::resized()
