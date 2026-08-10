@@ -6,6 +6,8 @@
 #include "atoms/GhostToggle.h"
 #include "atoms/LivePill.h"
 
+#include <optional>
+
 namespace cabrot::ui
 {
 // 64 px tall header band per CANONICAL-UI §7.1. Composes:
@@ -23,6 +25,7 @@ public:
 
     void setEngineLive (bool live)          { livePill.setLive (live); }
     void setDeltaAvailable (bool available) { ghost.setVisible (available); }
+    void setCpuPercent (std::optional<float> percent);
 
     GhostToggle& getDeltaToggle() noexcept { return ghost; }
 
@@ -30,6 +33,7 @@ private:
     DpdMark      dpdMark;
     LivePill     livePill;
     GhostToggle  ghost;
+    std::optional<float> cpuPercent;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (HeaderBar)
 };

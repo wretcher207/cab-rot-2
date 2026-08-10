@@ -3,6 +3,8 @@
 #include "../Theme/Fonts.h"
 #include "../Theme/Palette.h"
 
+#include <cmath>
+
 namespace cabrot::ui
 {
 HeaderBar::HeaderBar()
@@ -11,6 +13,27 @@ HeaderBar::HeaderBar()
     addAndMakeVisible (livePill);
     addAndMakeVisible (ghost);
     ghost.setVisible (false);
+}
+
+void HeaderBar::setCpuPercent (std::optional<float> percent)
+{
+    if (percent.has_value())
+    {
+        if (! std::isfinite (*percent))
+            percent.reset();
+        else
+            percent = static_cast<float> (juce::roundToInt (*percent * 10.0f)) * 0.1f;
+    }
+
+    if (! cpuPercent.has_value() && ! percent.has_value())
+        return;
+
+    if (cpuPercent.has_value() && percent.has_value()
+        && juce::approximatelyEqual (*cpuPercent, *percent))
+        return;
+
+    cpuPercent = percent;
+    repaint();
 }
 
 void HeaderBar::paint (juce::Graphics& g)
@@ -42,6 +65,27 @@ void HeaderBar::paint (juce::Graphics& g)
     g.setColour (theme::inkMeta);
     g.setFont   (theme::Fonts::monoLabel (10.5f));
     g.drawText  ("DEAD PIXEL HARMONIX", leftBlock, juce::Justification::centredLeft, false);
+
+    auto rightBlock = inner.removeFromRight (340);
+    rightBlock.removeFromRight (36);
+    rightBlock.removeFromRight (24);
+    rightBlock.removeFromRight (72);
+    rightBlock.removeFromRight (24);
+
+    auto cpuValueArea = rightBlock.removeFromRight (52);
+    rightBlock.removeFromRight (4);
+    auto cpuLabelArea = rightBlock.removeFromRight (32);
+
+    g.setFont   (theme::Fonts::monoLabel (10.0f));
+    g.setColour (theme::inkMeta);
+    g.drawText  ("CPU", cpuLabelArea, juce::Justification::centredRight, false);
+
+    g.setFont   (theme::Fonts::mono (12.0f, 0.10f));
+    g.setColour (theme::inkBody);
+    const juce::String value = cpuPercent.has_value()
+        ? juce::String (*cpuPercent, 1) + "%"
+        : juce::String ("--");
+    g.drawText  (value, cpuValueArea, juce::Justification::centredLeft, false);
 
 }
 
