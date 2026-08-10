@@ -45,6 +45,7 @@ CabRotEditor::CabRotEditor (CabRotProcessor& p)
     addAndMakeVisible (footerBar);
 
     wireAttachments();
+    headerBar.setDeltaAvailable (true);
 
     addKeyListener (this);
     setWantsKeyboardFocus (true);

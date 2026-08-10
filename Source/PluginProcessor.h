@@ -105,7 +105,8 @@ private:
 
     void updateDspParameters() noexcept;
     void processChunk (juce::AudioBuffer<float>& block, int numChannels,
-                       int numSamples, BlockTelemetry& telemetry) noexcept;
+                       int numSamples, bool listenToRemoved,
+                       BlockTelemetry& telemetry) noexcept;
 
     juce::UndoManager undoManager;
     juce::AudioProcessorValueTreeState apvts { *this, &undoManager,
@@ -151,6 +152,7 @@ private:
         std::atomic<float>* reapMix       {};
         std::atomic<float>* inputGain     {};
         std::atomic<float>* outputGain    {};
+        std::atomic<float>* deltaListen   {};
         std::atomic<float>* stereoLink    {};
         std::atomic<float>* clampSpeed    {};
         std::atomic<float>* maxReapDb     {};

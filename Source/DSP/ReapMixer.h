@@ -30,6 +30,12 @@ public:
                   int numChannels,
                   int numSamples) noexcept;
 
+    /** Writes only the material removed by the normal path: -mix * delta. */
+    void processRemovedSignal (juce::AudioBuffer<float>& output,
+                               const juce::AudioBuffer<float>& delta,
+                               int numChannels,
+                               int numSamples) noexcept;
+
 private:
     double sr { 48000.0 };
 

@@ -434,7 +434,62 @@ void testUiTelemetry (Report& report)
 }
 
 // --------------------------------------------------------------------------
-// 10. CPU. One instance, stereo, 48 kHz, everything working hard.
+// 10. Delta Listen must be the removed signal, with the correct polarity.
+// --------------------------------------------------------------------------
+void testDeltaListen (Report& report)
+{
+    constexpr double sr = 48000.0;
+    constexpr int length = 48000;
+
+    juce::AudioBuffer<float> source (2, length);
+    PinkNoise noise;
+    for (int ch = 0; ch < 2; ++ch)
+        for (int n = 0; n < length; ++n)
+            source.setSample (ch, n, noise.next() * 0.35f);
+
+    const auto render = [&] (float mix, bool deltaListen)
+    {
+        CabRotProcessor processor;
+        prepareStereo (processor, sr, kDefaultBlockSize);
+        setNeutral (processor);
+        setParam (processor, params::fizzHunt,    100.0f);
+        setParam (processor, params::edgePreserve,  0.0f);
+        setParam (processor, params::cabSmooth,   100.0f);
+        setParam (processor, params::digitalSand, 100.0f);
+        setParam (processor, params::airRot,      100.0f);
+        setParam (processor, params::reapMix,       mix);
+        setParam (processor, params::maxReapDb,    12.0f);
+        setParam (processor, params::deltaListen, deltaListen ? 1.0f : 0.0f);
+        warmUp (processor, sr, kDefaultBlockSize);
+
+        juce::AudioBuffer<float> result;
+        result.makeCopyOf (source);
+        runInPlace (processor, result, kDefaultBlockSize);
+        return result;
+    };
+
+    const auto dry = render (0.0f, false);
+    const auto wet = render (100.0f, false);
+    const auto removed = render (100.0f, true);
+
+    float reconstructionResidual = 0.0f;
+    for (int ch = 0; ch < 2; ++ch)
+        for (int n = 0; n < length; ++n)
+            reconstructionResidual = juce::jmax (
+                reconstructionResidual,
+                std::abs (wet.getSample (ch, n) + removed.getSample (ch, n)
+                          - dry.getSample (ch, n)));
+
+    report.check (reconstructionResidual < 1.0e-4f,
+                  "Delta Listen plus processed output reconstructs the dry path below -80 dB");
+
+    const auto zeroMix = render (0.0f, true);
+    report.check (zeroMix.getMagnitude (0, length) == 0.0f,
+                  "Delta Listen at Reap Mix zero is exact silence");
+}
+
+// --------------------------------------------------------------------------
+// 11. CPU. One instance, stereo, 48 kHz, everything working hard.
 // --------------------------------------------------------------------------
 void testCpuBudget (Report& report)
 {
@@ -534,6 +589,7 @@ int main()
         testBlockSizes (report);
         testDenormalsFlush (report);
         testUiTelemetry (report);
+        testDeltaListen (report);
         testCpuBudget (report);
     }
     catch (const std::exception& e)

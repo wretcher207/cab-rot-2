@@ -125,4 +125,32 @@ void ReapMixer::process (juce::AudioBuffer<float>& bandSum,
         }
     }
 }
+
+void ReapMixer::processRemovedSignal (juce::AudioBuffer<float>& output,
+                                      const juce::AudioBuffer<float>& delta,
+                                      int numChannels,
+                                      int numSamples) noexcept
+{
+    // Delta is processed minus dry (gain - 1), so the material removed from
+    // the signal is the opposite polarity: dry - processed = -delta.
+    makeup.setCurrentAndTargetValue (1.0f);
+    trackedDryMs = 0.0f;
+    trackedWetMs = 0.0f;
+
+    if (! mix.isSmoothing() && mix.getCurrentValue() <= 0.0f)
+    {
+        output.clear (0, numSamples);
+        return;
+    }
+
+    auto* const* out = output.getArrayOfWritePointers();
+    const auto* const* removed = delta.getArrayOfReadPointers();
+
+    for (int n = 0; n < numSamples; ++n)
+    {
+        const float amount = -mix.getNextValue();
+        for (int ch = 0; ch < numChannels; ++ch)
+            out[ch][n] = amount * removed[ch][n];
+    }
+}
 } // namespace cabrot::dsp

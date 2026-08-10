@@ -122,6 +122,7 @@ CabRotProcessor::CabRotProcessor()
     p.reapMix      = apvts.getRawParameterValue (params::reapMix);
     p.inputGain    = apvts.getRawParameterValue (params::inputGain);
     p.outputGain   = apvts.getRawParameterValue (params::outputGain);
+    p.deltaListen  = apvts.getRawParameterValue (params::deltaListen);
     p.stereoLink   = apvts.getRawParameterValue (params::stereoLink);
     p.clampSpeed   = apvts.getRawParameterValue (params::clampSpeed);
     p.maxReapDb    = apvts.getRawParameterValue (params::maxReapDb);
@@ -344,6 +345,7 @@ void CabRotProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
     const auto startedAt = juce::Time::getHighResolutionTicks();
     updateDspParameters();
+    const bool listenToRemoved = p.deltaListen->load (std::memory_order_relaxed) >= 0.5f;
     BlockTelemetry telemetry;
 
     // Hosts are supposed to honour the block size they announced, but a
@@ -358,7 +360,7 @@ void CabRotProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
                                         offset,
                                         chunk);
 
-        processChunk (slice, numChannels, chunk, telemetry);
+        processChunk (slice, numChannels, chunk, listenToRemoved, telemetry);
     }
 
     const auto finishedAt = juce::Time::getHighResolutionTicks();
@@ -401,7 +403,8 @@ void CabRotProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 }
 
 void CabRotProcessor::processChunk (juce::AudioBuffer<float>& block, int numChannels,
-                                    int numSamples, BlockTelemetry& telemetry) noexcept
+                                    int numSamples, bool listenToRemoved,
+                                    BlockTelemetry& telemetry) noexcept
 {
     inputStage.process (block, numChannels, numSamples);
     telemetry.inputPeak = juce::jmax (telemetry.inputPeak,
@@ -441,7 +444,10 @@ void CabRotProcessor::processChunk (juce::AudioBuffer<float>& block, int numChan
             deltaBuffer.addFrom (ch, 0, band, ch, 0, numSamples);
     }
 
-    mixer.process (block, deltaBuffer, numChannels, numSamples);
+    if (listenToRemoved)
+        mixer.processRemovedSignal (block, deltaBuffer, numChannels, numSamples);
+    else
+        mixer.process (block, deltaBuffer, numChannels, numSamples);
 
     outputStage.process (block, numChannels, numSamples);
     telemetry.outputPeak = juce::jmax (telemetry.outputPeak,
