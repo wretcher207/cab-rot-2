@@ -119,7 +119,7 @@ spacing.
 Scanlines are the only texture. They are permitted inside the spectral
 display frame only, rendered by `SpectreLookAndFeel::drawScanlines` at 5
 percent opacity, 3 px spacing. The helper's default `spacing = 4`
-(`SpectreLookAndFeel.h:56`) is wrong against this rule; it is unreachable
+(`SpectreLookAndFeel.h:53`) is wrong against this rule; it is unreachable
 today because the only call site passes 3 explicitly, so it is a latent
 trap rather than a live defect (§9.6). Nothing else in the window has texture,
 gradients, vignettes, shadows, or emissive effects.
@@ -145,7 +145,8 @@ bars, and the knob arcs render as stroked paths with no filled bodies.
 - Right cluster: "CPU" mono-label inkMeta + value in mono, inkBody; live
   indicator (small square in stateLive, breathing between 70 and 100
   percent on a 3 second cycle, no ornament; "LIVE" label in inkMeta;
-  the shipping amplitude is 40 to 100 percent, `LivePill.cpp:53`, see §9.6);
+  the shipping amplitude is 40 to 100 percent, `LivePill.cpp:43` and `:50`,
+  see §9.6);
   Delta Listen ghost icon.
 
 ### 7.2 WaspMeter (left of MainSplit)
@@ -185,7 +186,7 @@ hairlines and spacing.
 FIZZ section (192 px tall):
 - mono-label header "FIZZ AMOUNT", inkMeta.
 - Hero number in JetBrains Mono, capped at 72 px, inkPrimary, no glow.
-  Ships as a hardcoded `66.1` (`FizzReadout.h:19-21`), a value inherited
+  Ships as a hardcoded `66.1` (`FizzReadout.h:24`), a value inherited
   from the deleted Stitch reference. §9.4 owns this.
 - Percent sign at about a third of the number height, inkMeta, on the
   number's baseline.
@@ -210,7 +211,7 @@ AMP PROFILE section (fills remaining height):
   in `rule`, 1.5 px value arc in inkPrimary, 1 px indicator line in
   inkPrimary (inkDisabled when the control is off). No filled body, no
   gradient, no bevel, no ring glow. Dials size between 56 and 104 px
-  (`SpectreKnob.cpp:71-77`; the "cap at 96" comment there is stale, §9.6).
+  (`SpectreKnob.cpp:60-72`; the "cap at 96" comment at `:65` is stale, §9.6).
 
 ### 7.5 FooterBar (48 px tall)
 
@@ -218,7 +219,7 @@ AMP PROFILE section (fills remaining height):
 - Left: IN/OUT meters. Mono-label in inkMeta, then a square bar: surface3
   track with 1 px `rule` frame, fill in stateLive. The 0.70 / 0.85 fills
   and the 12 px width difference between IN and OUT are placeholder
-  artefacts, not design intent (`FooterBar.cpp:30-31`, `:96-99`); both
+  artefacts, not design intent (`FooterBar.cpp:28-29`, `:87-92`); both
   meters should be equal width once Phase 6 wires real levels (§9.4).
 - Center: A/B toggle, two square hairline buttons sharing a border.
   Selected side: inkPrimary border + text.
@@ -273,7 +274,7 @@ much a user would be misled.
 ### 9.1 The spectral display plots two curves on one axis, and only one of them respects it
 
 The dB scale (`WaspMeter.cpp:99-107`) labels 0/-6/-12/-18/-24 evenly across
-the plot, and `dbToY` (`:90`) maps the reduction curve linearly over
+the plot, and `dbToY` (`:87-92`) maps the reduction curve linearly over
 `kReductionScaleMaxDb`. Those agree. The input reference spectrum does not
 participate: `:145` and `:171` place it at
 `plot.getBottom() - reference[i] * plot.getHeight()`, a raw 0-1 amplitude.
@@ -295,17 +296,18 @@ Until one of those lands, §7.2 must keep saying the reference is texture.
 
 ### 9.2 The resize evidence described windows that cannot exist
 
-`FACELIFT-REPORT.md:137-140` cited `min.png` at 1000 x 680 and `max.png` at
-1600 x 1070. Neither is on the locked 1.5385 ratio, and neither matches
-`setResizeLimits (1000, 650, 1600, 1040)` (`PluginEditor.cpp:49`). The
-reachable extremes are 1000 x 650 and 1600 x 1040. §1 now states this.
+`FACELIFT-REPORT.md` ("Verified outcomes") cited `min.png` at 1000 x 680 and
+`max.png` at 1600 x 1070. Neither is on the locked 1.5385 ratio, and neither
+matches `setResizeLimits (1000, 650, 1600, 1040)` (`PluginEditor.cpp:49`).
+The reachable extremes are 1000 x 650 and 1600 x 1040. §1 now states this,
+and the report line is corrected.
 
 Separately, `PluginEditor.cpp:210` scales the right column width by the
 height ratio. Correct only under the aspect lock. Flagged in §1.
 
 ### 9.3 Evidence cited in the facelift report is not reproducible
 
-`design/screenshots/` is gitignored (`.gitignore:44`), so every screenshot
+`design/screenshots/` is gitignored (`.gitignore:45`), so every screenshot
 the report cites as iteration evidence is absent from the repository.
 `build/` does not exist in a fresh checkout, so the five-target build result
 and the two test-binary exit codes cannot be re-observed either.
@@ -319,8 +321,25 @@ Anyone re-verifying this facelift should treat the grep claims as confirmed
 and the build/screenshot claims as unverified. Future reports must either
 commit their evidence or stop citing it.
 
+Partial remedy, added with this amendment: `tools/verify-doc-citations.py`
+checks every `File.ext:N` citation in this document and in
+`FACELIFT-REPORT.md` against the referenced file, and content-checks a set
+of anchor lines that the arguments in §9 depend on. Run it after touching
+either the docs or the cited sources:
+
+```
+python tools/verify-doc-citations.py
+```
+
+It currently reports `OK: 75 citations and anchors verified`. It caught
+three dangling citations in the facelift report when first run (a
+paint-function range, a knob-sizing range and a placeholder-data range, all
+stale after earlier edits); those are fixed. This closes the cheapest gap,
+citation drift. It does not substitute for committing build and screenshot
+evidence, which remains open.
+
 Also in this area: the dB guide lines are drawn to
-`getLocalBounds().getRight()` (`WaspMeter.cpp:119-120`, `:127-128`) rather
+`getLocalBounds().getRight()` (`WaspMeter.cpp:120`, `:128`) rather
 than the frame's inside edge, so they cross the 1 px frame that §7.2 says is
 the only thing framing the plot.
 
@@ -330,10 +349,10 @@ None of these are wired to anything:
 
 | Element | Hardcoded value | Site |
 |---|---|---|
-| Fizz hero number | `66.1` | `FizzReadout.h:19-21` |
-| Header CPU | `4.2%` | `HeaderBar.h:30-32` |
-| IN / OUT meters | `0.70` / `0.85` | `FooterBar.cpp:30-31` |
-| Spectral display | 16-column reference + 24-point curve | `WaspMeter.h:47-61` |
+| Fizz hero number | `66.1` | `FizzReadout.h:24` |
+| Header CPU | `4.2%` | `HeaderBar.h:33` |
+| IN / OUT meters | `0.70` / `0.85` | `FooterBar.cpp:28-29` |
+| Spectral display | 16-column reference + 24-point curve | `WaspMeter.h:44-63` |
 
 Meanwhile the header LIVE indicator breathes on a timer whenever the editor
 is visible, regardless of whether audio is running. For a design whose
@@ -356,8 +375,8 @@ The six amp profiles are the visual centre of the right panel and change
 nothing audible.
 
 This matters as a consistency problem: The Crypt was deleted from the footer
-on the stated grounds that its button opened nothing
-(`FACELIFT-REPORT.md:116`). The same standard applied to the amp profile
+on the stated grounds that its button opened nothing (`FACELIFT-REPORT.md`,
+"Copy"). The same standard applied to the amp profile
 grid would delete or visibly disable it. Choose one standard. The
 recommendation is to keep the controls (they are locked decisions with
 Phase 6/7 owners) and render unwired controls in `inkDisabled` until their
@@ -367,11 +386,11 @@ DSP lands, which is honest and costs one predicate per control.
 
 | Site | Says | Actually |
 |---|---|---|
-| `LivePill.cpp:53` | "between 40 and 100 percent" | `0.70 + 0.30*sin` = 40 to 100; §7.1 said 70 to 100. §7.1 corrected. |
-| `SpectreKnob.cpp:72-73` | "cap the dial at 96" | caps at 104 |
-| `HeaderBar.h:14` | header reads "BY DEAD PIXEL DESIGN" | draws "DEAD PIXEL HARMONIX" |
-| `SpectreLookAndFeel.h:56` | `spacing = 4` default | rule is 3; unreachable, only call site passes 3 |
-| `FizzReadout.h:8-11` | "static 66.1% from Stitch" | contradicts the Stitch-deleted claim at the top of this file |
+| `LivePill.cpp:43` | "between 40 and 100 percent" | `0.70 + 0.30*sin` = 40 to 100; §7.1 said 70 to 100. §7.1 corrected. |
+| `SpectreKnob.cpp:65` | "cap the dial at 96" | caps at 104 (`:70`) |
+| `HeaderBar.h:12` | header reads "BY DEAD PIXEL DESIGN" | draws "DEAD PIXEL HARMONIX" (`HeaderBar.cpp:43`) |
+| `SpectreLookAndFeel.h:53` | `spacing = 4` default | rule is 3; unreachable, only call site passes 3 |
+| `FizzReadout.h:9` and `:22` | "static 66.1% from Stitch" | contradicts the Stitch-deleted claim at the top of this file |
 
 Also: `Fonts::displayScaled`, `monoScaled` and `monoLabelScaled` are dead
 code (only `wordmarkScaled` has a call site), and `KnobRow.cpp:49` uses
@@ -380,12 +399,13 @@ widths in a layout that otherwise insists on a 4 px spacing atom.
 
 ### 9.7 The stateError path is unproven, not "proven by construction"
 
-`FACELIFT-REPORT.md:148-150` concedes the damage path is never exercised
-because placeholder reductions stay under 12 dB, then asserts it is proven
-by construction. It is not. `paintReductionCurve:216` clips with
-`juce::roundToInt (thresholdY)` against a 1.5 px float-stroked path, so the
-crossing point can leave up to a pixel of `inkPrimary` inside damaged
+`FACELIFT-REPORT.md` ("Known honest limits") concedes the damage path is
+never exercised because placeholder reductions stay under 12 dB, then
+asserted it was proven by construction. It is not. `WaspMeter.cpp:216` clips
+with `juce::roundToInt (thresholdY)` against a 1.5 px float-stroked path, so
+the crossing point can leave up to a pixel of `inkPrimary` inside damaged
 territory, which is exactly the seam the two-pass render exists to avoid.
+(That report line is now corrected.)
 
 This is cheap to falsify: set one entry of `reductionDb` above 12.0f and
 look. Do that before claiming the path works.
@@ -401,4 +421,9 @@ look. Do that before claiming the path works.
   and §7.5 now mark their placeholder values as placeholders. §7.4 notes the
   stale dial-cap comment. §8 notes that decisions 2, 3 and the amp profiles
   are interface-only until their DSP lands.
+- **2026-08-10, post-review follow-up**: every `File.ext:N` citation in this
+  document and in `FACELIFT-REPORT.md` was re-derived from the files rather
+  than from memory; roughly a dozen had drifted and are corrected.
+  `tools/verify-doc-citations.py` added to keep them honest, and verified to
+  fail on both a dangling line number and an anchor whose content changed.
 

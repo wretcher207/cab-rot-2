@@ -89,7 +89,7 @@ and band labels beneath, nothing else frames it.
 - dB scale 0/-6/-12/-18/-24 in mono 9.5 metadata with tiered guides and a
   full-strength -12 dB damage guide: `Source/UI/WaspMeter.cpp:101-133`.
 - Frequency ticks inside the frame bottom: `Source/UI/WaspMeter.cpp:71-87`
-  plus dual-row labels below the frame: `Source/UI/WaspMeter.cpp:235-270`.
+  plus dual-row labels below the frame: `Source/UI/WaspMeter.cpp:223-261`.
 - Header strip reads SPECTRAL ANALYSIS / WASP METER in mono metadata:
   `Source/UI/WaspMeter.cpp:28-44`.
 
@@ -104,7 +104,7 @@ Rule: flat ring control, mono name above in inkMeta, mono value below in
 inkBody.
 
 - Dial: `Source/Theme/SpectreLookAndFeel.cpp:57-98` (56 to 104 px sizing
-  in `Source/UI/atoms/SpectreKnob.cpp:71-77`).
+  in `Source/UI/atoms/SpectreKnob.cpp:60-72`).
 - Labels/values: `Source/UI/atoms/SpectreKnob.cpp:45-59`.
 - Row ground flat canvas with a single top hairline, no scanlines:
   `Source/UI/KnobRow.cpp:37-45`.
@@ -157,7 +157,7 @@ inkPrimary, unselected rule + inkMeta.
 ## Known honest limits
 
 - The spectral display data is still deterministic placeholder content
-  (documented in `Source/UI/WaspMeter.h:52-70`); Phase 6 owns the live
+  (documented in `Source/UI/WaspMeter.h:42-63`); Phase 6 owns the live
   wiring via `getBandReductionDb()`. Placeholder values stay under the 12
   dB threshold, so the `stateError` path is **untested**. The earlier
   wording "proven by construction" was wrong: the clip boundary rounds to
