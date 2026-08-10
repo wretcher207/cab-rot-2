@@ -174,8 +174,9 @@ The pluginval mention in the risk register: start running pluginval continuously
 - Verification after the facelift: `CabRot_PassthroughTest` **3/3 passed**, `CabRot_DspTest` **12/12 passed** with `CABROT_SKIP_CPU_BENCH=1` (the CPU benchmark measures the machine; screen recording was live during the run, so the budget check was skipped and the printed figures read instead: 2.480% all-open, 1.939% idle split).
 - Fresh Release artifacts exist for VST3, Standalone, passthrough test, DSP test, and ThemeTest. All five targets compile with 0 warnings, 0 errors.
 - The facelift branch has NOT been pushed. Push `facelift-dpd`, then decide whether it lands on main before or alongside Phase 5.
-- The installed VST3 (from the 2026-08-10 tuning build) predates the facelift paint. Reinstall with `tools/install-vst3.ps1` if the facelifted look is wanted in the DAW.
-- **Next concrete step:** push or merge `facelift-dpd`, then begin Phase 5's six-mode system.
+- All branches are pushed: `facelift-dpd` merged fast-forward to `main` (now `17caba9`); `phase-4-dsp` updated to `84c5082`.
+- The facelifted VST3 is installed at `C:\Users\wretc\AppData\Local\Programs\Common\VST3\Cab Rot.vst3` and is byte-identical to the tested build (SHA-256 prefix `30F9CB141A01FE5E`).
+- **Next concrete step:** nothing blocking; Phase 5's six-mode system is the next agent-shaped block.
 
 ### The test harness
 
