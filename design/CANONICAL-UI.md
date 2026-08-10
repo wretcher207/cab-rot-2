@@ -350,6 +350,21 @@ Reproduced from a clean `build/`:
 
 `ctest --test-dir build -C Release` runs all four gates: 4/4 passing.
 
+**Reproduced end to end from a fresh clone**, which is the property the
+original report lacked. `tools/acceptance.cmd` does the whole run:
+configure, build all six targets, `ctest`, then the three documentation
+gates. In a clean clone at `%TEMP%\accept-clone` (JUCE supplied by
+`tools/fetch-juce.py`) it produced: all six targets built, `4/4 tests
+passed`, `OK: 107 citations and anchors verified`, and
+`exit-code contract: OK`.
+
+Two practical notes for whoever runs it next. A cold build takes longer than
+ten minutes, so run it detached rather than under a short timeout. And if a
+build is killed partway, orphaned `link.exe` / `MSBuild.exe` processes keep
+a handle on `Cab Rot.vst3` and the next run fails with `LNK1104`; kill them
+and delete `build/CabRot_artefacts` before retrying. That is a Windows build
+artefact, not a defect in this project.
+
 Zero compiler warnings and zero errors from project sources across all five,
 matching what the report claimed. So the report's build numbers were
 accurate; they were simply unreproducible as written. The screenshots remain
