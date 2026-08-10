@@ -10,16 +10,16 @@ GhostToggle::GhostToggle()
     setTooltip ("Delta Listen: hear what the plugin is removing");
 }
 
-void GhostToggle::paintButton (juce::Graphics& g, bool isHighlighted, bool isDown)
+void GhostToggle::paintButton (juce::Graphics& g, bool isHighlighted, bool)
 {
     const auto area = getLocalBounds().toFloat().reduced (2.0f);
     const bool active = getToggleState();
 
-    const auto colour = active
-                            ? theme::danger
-                            : (isHighlighted || isDown
-                                   ? theme::toxic
-                                   : theme::mutedForeground.withAlpha (0.85f));
+    // The ghost is discovered, never announced: disabled-grey at rest,
+    // primary ink while listening. No halo, no tint, no emphasis.
+    const auto colour = active ? theme::inkPrimary
+                        : (isHighlighted ? theme::inkBody
+                                         : theme::inkDisabled);
 
     juce::Path p;
     const float w = area.getWidth();
@@ -41,15 +41,8 @@ void GhostToggle::paintButton (juce::Graphics& g, bool isHighlighted, bool isDow
     p.lineTo (left,                    top + h);
     p.closeSubPath();
 
-    if (active)
-    {
-        // soft halo
-        g.setColour (theme::danger.withAlpha (0.28f));
-        g.strokePath (p, juce::PathStrokeType (5.0f));
-    }
-
     g.setColour (colour);
-    g.strokePath (p, juce::PathStrokeType (1.6f));
+    g.strokePath (p, juce::PathStrokeType (1.4f));
 
     // Two eye-holes
     const float eyeR = juce::jmin (w, h) * 0.06f;

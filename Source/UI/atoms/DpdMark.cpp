@@ -18,12 +18,13 @@ void DpdMark::paint (juce::Graphics& g)
     const auto outer = area.reduced (stroke * 0.5f);
     const auto inner = outer.translated (-offset, offset);
 
-    g.setColour (theme::onSurface.withAlpha (0.70f));
+    g.setColour (theme::inkBody.withAlpha (0.70f));
     g.drawRect (outer, stroke * 0.7f);
     g.drawRect (inner, stroke * 0.55f);
 
+    // The dead pixel: a single filled square near the upper-right corner.
     const float pix = area.getWidth() * 0.18f;
-    g.setColour (juce::Colours::white.withAlpha (0.92f));
+    g.setColour (theme::inkPrimary.withAlpha (0.92f));
     g.fillRect (juce::Rectangle<float> (
         outer.getRight() - pix - stroke,
         outer.getY() + pix * 0.4f,

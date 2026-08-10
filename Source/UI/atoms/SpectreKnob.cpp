@@ -42,18 +42,18 @@ void SpectreKnob::setValueDisplay (double value, int decimals)
 
 void SpectreKnob::paint (juce::Graphics& g)
 {
-    const auto area  = getLocalBounds();
-    const bool active = slider.getValue() > 0.0;
+    const auto area = getLocalBounds();
 
     auto labelArea = area.withHeight (16);
     auto valueArea = area.withTop (area.getBottom() - 16);
 
-    g.setColour (active ? theme::toxic : theme::mutedForeground);
-    g.setFont   (theme::Fonts::uiChrome());
+    // Name above in metadata grey, value below in body ink. Both mono.
+    g.setColour (theme::inkMeta);
+    g.setFont   (theme::Fonts::monoLabel (10.0f));
     g.drawText  (label, labelArea, juce::Justification::centred, false);
 
-    g.setColour (active ? theme::toxic : theme::mutedForeground);
-    g.setFont   (theme::Fonts::monoData());
+    g.setColour (theme::inkBody);
+    g.setFont   (theme::Fonts::mono (13.0f, 0.05f));
     g.drawText  (valueDisplay, valueArea, juce::Justification::centred, false);
 }
 
@@ -62,9 +62,9 @@ void SpectreKnob::resized()
     auto area = getLocalBounds();
     area.removeFromTop (20);
     area.removeFromBottom (20);
-    // CANONICAL-UI §7.6: 64x64 knob. Cap at 96 for resized layouts so we
-    // don't get visually overwhelming dials at large editor heights, and
-    // never below 56 so the indicator stays legible at min size.
+    // Cap the dial at 96 for resized layouts so it stays a control, not a
+    // monument, and never below 56 so the indicator stays legible at min
+    // size.
     const int side = juce::jlimit (56, 96,
                                    juce::jmin (area.getWidth(), area.getHeight()));
     auto knobArea = juce::Rectangle<int> (side, side).withCentre (area.getCentre());

@@ -83,17 +83,17 @@ juce_generate_juce_header(CabRot)
 
 # ----------------------------------------------------------------------------
 # Bundled fonts -> BinaryData (no runtime CDN, no external dependency).
-# Phase 1 will add Space Grotesk Black (900) + the rest of the weight ladder.
+# Three faces per the DPD brand kit: DPD Display (wordmark/display),
+# Inter (body/controls), JetBrains Mono (metadata/readouts).
 # ----------------------------------------------------------------------------
 juce_add_binary_data(CabRotBinaryData
     HEADER_NAME BinaryData.h
     NAMESPACE   BinaryData
     SOURCES
-        Resources/fonts/SpaceGrotesk-Regular.ttf
-        Resources/fonts/SpaceGrotesk-Medium.ttf
-        Resources/fonts/SpaceGrotesk-Bold.ttf
+        Resources/fonts/DPDDisplay-Regular.ttf
+        Resources/fonts/Inter-Regular.ttf
+        Resources/fonts/Inter-Medium.ttf
         Resources/fonts/JetBrainsMono-Regular.ttf
-        Resources/fonts/JetBrainsMono-Bold.ttf
 )
 set_target_properties(CabRotBinaryData PROPERTIES
     POSITION_INDEPENDENT_CODE TRUE

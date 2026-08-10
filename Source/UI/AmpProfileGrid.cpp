@@ -21,8 +21,6 @@ AmpProfileGrid::AmpProfileGrid()
         // setClickingTogglesState already wired in ModeButton ctor; only the
         // radio-group affiliation is grid-level state.
         button->setRadioGroupId (1, juce::dontSendNotification);
-        if (i == 0)
-            button->setToggleState (true, juce::dontSendNotification); // PHASE 2 PLACEHOLDER: 5150 active
         addAndMakeVisible (*button);
         modes.push_back (std::move (button));
     }
@@ -30,29 +28,22 @@ AmpProfileGrid::AmpProfileGrid()
 
 void AmpProfileGrid::paint (juce::Graphics& g)
 {
-    auto area = getLocalBounds().toFloat();
+    auto inner = getLocalBounds();
+    auto headerStrip = inner.removeFromTop (16);
 
-    g.setColour (theme::surfaceContainer);
-    g.fillRoundedRectangle (area, 12.0f);
-    g.setColour (theme::outlineVariant);
-    g.drawRoundedRectangle (area, 12.0f, 1.0f);
-
-    auto inner = getLocalBounds().reduced (20);
-    auto headerStrip = inner.removeFromTop (24);
-
-    g.setColour (theme::mutedForeground);
-    g.setFont   (theme::Fonts::uiChrome());
+    g.setColour (theme::inkMeta);
+    g.setFont   (theme::Fonts::monoLabel (10.0f));
     g.drawText  ("AMP PROFILE", headerStrip, juce::Justification::centredLeft, false);
 }
 
 void AmpProfileGrid::resized()
 {
-    auto inner = getLocalBounds().reduced (20);
-    inner.removeFromTop (24 + 12); // header + gap
+    auto inner = getLocalBounds();
+    inner.removeFromTop (16 + 16); // header + gap
 
     constexpr int cols = 2;
     constexpr int rows = 3;
-    constexpr int gap  = 12;
+    constexpr int gap  = 8;
 
     const int cellW = (inner.getWidth()  - gap * (cols - 1)) / cols;
     const int cellH = (inner.getHeight() - gap * (rows - 1)) / rows;

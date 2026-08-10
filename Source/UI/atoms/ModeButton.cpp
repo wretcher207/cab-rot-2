@@ -14,19 +14,18 @@ void ModeButton::paintButton (juce::Graphics& g, bool isHighlighted, bool isDown
 {
     if (auto* lf = &getLookAndFeel())
     {
-        // Background comes from the LookAndFeel so the styling stays
-        // centralised. We only own the label render here.
+        // Background (the hairline outline) comes from the LookAndFeel so
+        // the styling stays centralised. We only own the label render here.
         lf->drawButtonBackground (g, *this,
                                   findColour (juce::TextButton::buttonColourId),
                                   isHighlighted, isDown);
     }
 
     const bool active = getToggleState();
-    auto font = theme::Fonts::monoData();
-    if (active)
-        font = font.withStyle (juce::Font::bold);
-    g.setFont   (font);
-    g.setColour (active ? theme::onPrimaryContainer : theme::mutedForeground);
+    g.setFont   (theme::Fonts::monoLabel (11.0f));
+    g.setColour (active ? theme::inkPrimary
+                 : (isHighlighted || isDown) ? theme::inkBody
+                                             : theme::inkMeta);
     g.drawText  (getButtonText(), getLocalBounds(), juce::Justification::centred, false);
 }
 } // namespace cabrot::ui

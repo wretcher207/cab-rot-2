@@ -7,24 +7,10 @@ namespace cabrot::ui
 {
 namespace
 {
-// Section heading rendered in the small uppercase ui-chrome style.
-void drawSectionLabel (juce::Graphics& g, juce::Rectangle<int> area, juce::String text,
-                       juce::Colour colour = theme::mutedForeground)
+void drawRule (juce::Graphics& g, juce::Rectangle<int> r)
 {
-    g.setColour (colour);
-    g.setFont (theme::Fonts::uiChrome());
-    g.drawText (text, area, juce::Justification::centredLeft, false);
-}
-
-void drawCard (juce::Graphics& g, juce::Rectangle<float> area,
-               juce::Colour fill = theme::surfaceContainer,
-               juce::Colour edge = theme::outlineVariant,
-               float radius = 12.0f)
-{
-    g.setColour (fill);
-    g.fillRoundedRectangle (area, radius);
-    g.setColour (edge);
-    g.drawRoundedRectangle (area, radius, 1.0f);
+    g.setColour (theme::rule);
+    g.fillRect (r);
 }
 }
 
@@ -62,19 +48,7 @@ void ThemeTest::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds();
 
-    // Outer surface - the surface-container-lowest plate.
-    g.setColour (theme::surfaceContainerLowest);
-    g.fillRect (bounds);
-
-    // Subtle radial vignette toward the centre to keep the panel from
-    // looking flat.
-    juce::ColourGradient grad (
-        theme::surfaceContainerLow,
-        static_cast<float> (bounds.getCentreX()), static_cast<float> (bounds.getCentreY()),
-        theme::surfaceContainerLowest,
-        0.0f, static_cast<float> (bounds.getHeight()),
-        true);
-    g.setGradientFill (grad);
+    g.setColour (theme::canvas);
     g.fillRect (bounds);
 
     auto remaining = bounds;
@@ -82,129 +56,66 @@ void ThemeTest::paint (juce::Graphics& g)
 
     auto footer  = remaining.removeFromBottom (48);
     auto knobBay = remaining.removeFromBottom (192);
-    auto main    = remaining; // middle band
+    auto main    = remaining.reduced (24);
 
-    // Main is split: spectral (left, flex 1) + right column (320 wide)
-    auto right = main.removeFromRight (320 + 24).reduced (12);
-    auto wasp  = main.reduced (24);
+    auto right = main.removeFromRight (344 + 24);
+    right.removeFromRight (24);
 
-    // Wasp meter card
-    drawCard (g, wasp.toFloat(), theme::surfaceContainer.withAlpha (0.5f), theme::outlineVariant, 12.0f);
-    theme::SpectreLookAndFeel::drawGridPattern (g, wasp.reduced (1), 0.30f, 20);
-    paintMeters (g, wasp.reduced (12));
+    paintMeters (g, main.withTrimmedRight (24));
 
-    // Right column: hero readout + amp profile grid
     auto hero = right.removeFromTop (192);
     paintHero (g, hero);
     right.removeFromTop (24);
     paintModes (g, right);
 
-    // Knob bay
     paintKnobs (g, knobBay);
     paintFooter (g, footer);
-
-    // Global scanline overlay (very subtle)
-    theme::SpectreLookAndFeel::drawScanlines (g, bounds, 0.18f, 4);
 }
 
 void ThemeTest::resized()
 {
-    // No child components - single paint() does everything.
+    // No child components - a single paint() pass draws everything.
 }
 
 void ThemeTest::paintHeader (juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour (theme::surfaceContainerLow.withAlpha (0.90f));
+    g.setColour (theme::canvas);
     g.fillRect (area);
-    g.setColour (theme::outlineVariant);
-    g.fillRect (area.removeFromBottom (1));
 
-    auto inner = area.reduced (20, 0);
+    auto inner = area.reduced (24, 0);
 
-    // Left cluster: wordmark + divider + DPD mark + by-line
-    auto left = inner.removeFromLeft (480);
-    auto wm   = left.removeFromLeft (140);
-    g.setColour (theme::toxic);
-    // The Stitch h1 is `text-display-title font-black` -> 24 px Space Grotesk
-    // Black uppercase. The Black weight isn't in workspace yet so we use Bold
-    // and bump from 24 to 28 px to compensate visually.
-    auto df = theme::Fonts::displayTitleScaled (1.18f).withExtraKerningFactor (-0.04f);
-    g.setFont (df);
+    auto left = inner.removeFromLeft (520);
+    auto wm   = left.removeFromLeft (170);
+    g.setColour (theme::inkPrimary);
+    g.setFont (theme::Fonts::wordmark());
     g.drawText ("CAB ROT", wm, juce::Justification::centredLeft, false);
 
-    // 1 px divider, 16 px tall
-    g.setColour (theme::outlineVariant);
-    auto divider = juce::Rectangle<int> (left.getX(), left.getCentreY() - 8, 1, 16);
-    g.fillRect (divider);
+    drawRule (g, { left.getX(), left.getCentreY() - 8, 1, 16 });
     left.removeFromLeft (16);
 
-    // DPD mark, 16 x 16, grayscale 70%
-    auto markBounds = juce::Rectangle<float> (
-        static_cast<float> (left.getX()),
-        static_cast<float> (left.getCentreY() - 8),
-        16.0f, 16.0f);
-    paintDpdMark (g, markBounds);
+    paintDpdMark (g, juce::Rectangle<float> (static_cast<float> (left.getX()),
+                                              static_cast<float> (left.getCentreY() - 8),
+                                              16.0f, 16.0f));
 
     left.removeFromLeft (24);
-    g.setColour (theme::mutedForeground);
-    g.setFont (theme::Fonts::uiChrome());
-    g.drawText ("BY DEAD PIXEL DESIGN", left, juce::Justification::centredLeft, false);
+    g.setColour (theme::inkMeta);
+    g.setFont (theme::Fonts::monoLabel (10.5f));
+    g.drawText ("DEAD PIXEL HARMONIX", left, juce::Justification::centredLeft, false);
 
-    // Right cluster: CPU + LIVE pill + Delta Listen ghost (placeholder dot)
-    auto right = inner.removeFromRight (320);
-    auto deltaArea = right.removeFromRight (24);
-    auto liveArea  = right.removeFromRight (96);
-    auto cpuArea   = right;
+    auto right = inner.removeFromRight (340);
+    right.removeFromRight (36 + 24 + 72 + 24);
 
-    g.setFont (theme::Fonts::uiChrome());
-    g.setColour (theme::mutedForeground);
-    g.drawText ("CPU", cpuArea.removeFromLeft (40), juce::Justification::centredLeft, false);
-    g.setFont (theme::Fonts::monoData());
-    g.setColour (theme::toxic);
-    g.drawText ("4.2%", cpuArea, juce::Justification::centredLeft, false);
+    auto cpuValue = right.removeFromRight (52);
+    right.removeFromRight (4);
+    auto cpuLabel = right.removeFromRight (32);
+    g.setFont (theme::Fonts::monoLabel (10.0f));
+    g.setColour (theme::inkMeta);
+    g.drawText ("CPU", cpuLabel, juce::Justification::centredRight, false);
+    g.setFont (theme::Fonts::mono (12.0f, 0.10f));
+    g.drawText ("4.2%", cpuValue, juce::Justification::centredLeft, false);
 
-    // LIVE pill
-    auto pill = liveArea.toFloat().reduced (4.0f);
-    g.setColour (theme::surfaceContainer);
-    g.fillRoundedRectangle (pill, pill.getHeight() * 0.5f);
-    g.setColour (theme::outlineVariant);
-    g.drawRoundedRectangle (pill, pill.getHeight() * 0.5f, 1.0f);
-    auto dot = juce::Rectangle<float> (
-        pill.getX() + 8.0f,
-        pill.getCentreY() - 4.0f,
-        8.0f, 8.0f);
-    g.setColour (theme::toxic.withAlpha (0.4f));
-    g.fillEllipse (dot.expanded (4.0f));
-    g.setColour (theme::toxic);
-    g.fillEllipse (dot);
-    g.setFont (theme::Fonts::uiChrome());
-    g.drawText ("LIVE",
-                juce::Rectangle<int> (juce::roundToInt (pill.getX() + 22.0f),
-                                       juce::roundToInt (pill.getY()),
-                                       juce::roundToInt (pill.getRight() - pill.getX() - 26.0f),
-                                       juce::roundToInt (pill.getHeight())),
-                juce::Justification::centredLeft, false);
-
-    // Delta Listen ghost - simple coded glyph for now.
-    g.setColour (theme::mutedForeground.withAlpha (0.85f));
-    auto ghost = deltaArea.toFloat().reduced (2.0f);
-    juce::Path ghostPath;
-    ghostPath.startNewSubPath (ghost.getCentreX(), ghost.getY() + 2.0f);
-    ghostPath.cubicTo (ghost.getRight(),  ghost.getY() + 2.0f,
-                       ghost.getRight(),  ghost.getBottom() - 4.0f,
-                       ghost.getRight(),  ghost.getBottom() - 4.0f);
-    ghostPath.lineTo (ghost.getRight() - 3.0f, ghost.getBottom());
-    ghostPath.lineTo (ghost.getRight() - 6.0f, ghost.getBottom() - 4.0f);
-    ghostPath.lineTo (ghost.getRight() - 9.0f, ghost.getBottom());
-    ghostPath.lineTo (ghost.getX() + 6.0f, ghost.getBottom() - 4.0f);
-    ghostPath.lineTo (ghost.getX() + 3.0f, ghost.getBottom());
-    ghostPath.lineTo (ghost.getX(), ghost.getBottom() - 4.0f);
-    ghostPath.lineTo (ghost.getX(), ghost.getY() + 2.0f);
-    ghostPath.cubicTo (ghost.getX(), ghost.getY() + 2.0f,
-                       ghost.getX(), ghost.getY() + 2.0f,
-                       ghost.getCentreX(), ghost.getY() + 2.0f);
-    ghostPath.closeSubPath();
-    g.strokePath (ghostPath, juce::PathStrokeType (1.4f));
+    drawRule (g, inner.withY (area.getBottom() - 1).withHeight (1)
+                    .expanded (24, 0));
 }
 
 void ThemeTest::paintDpdMark (juce::Graphics& g, juce::Rectangle<float> area)
@@ -212,13 +123,12 @@ void ThemeTest::paintDpdMark (juce::Graphics& g, juce::Rectangle<float> area)
     const float stroke = juce::jmax (1.0f, area.getWidth() * 0.06f);
     const float offset = area.getWidth() * 0.14f;
 
-    g.setColour (theme::onSurface.withAlpha (0.70f));
+    g.setColour (theme::inkBody.withAlpha (0.70f));
     g.drawRect (area.reduced (stroke * 0.5f), stroke * 0.7f);
     g.drawRect (area.reduced (stroke * 0.5f).translated (-offset, offset), stroke * 0.55f);
 
-    // dead pixel
     const float pix = area.getWidth() * 0.18f;
-    g.setColour (juce::Colours::white.withAlpha (0.95f));
+    g.setColour (theme::inkPrimary.withAlpha (0.92f));
     g.fillRect (juce::Rectangle<float> (
         area.getRight() - pix - stroke,
         area.getY() + pix * 0.4f,
@@ -227,19 +137,15 @@ void ThemeTest::paintDpdMark (juce::Graphics& g, juce::Rectangle<float> area)
 
 void ThemeTest::paintKnobs (juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour (theme::outlineVariant);
-    g.fillRect (area.removeFromTop (1));
-    g.setColour (theme::surfaceContainer.withAlpha (0.6f));
+    drawRule (g, area.removeFromTop (1));
+    g.setColour (theme::canvas);
     g.fillRect (area);
 
-    theme::SpectreLookAndFeel::drawScanlines (g, area, 0.10f, 4);
-
-    auto inner   = area.reduced (32, 24);
-    const int n  = static_cast<int> (knobSamples.size());
+    auto inner = area.reduced (32, 24);
+    const int n = static_cast<int> (knobSamples.size());
     if (n == 0)
         return;
 
-    // Each cell: label (top), knob (middle), value (bottom).
     const int cellW = inner.getWidth() / n;
     const int knobSize = 64;
 
@@ -254,17 +160,14 @@ void ThemeTest::paintKnobs (juce::Graphics& g, juce::Rectangle<int> area)
             knobSize, knobSize);
 
         const auto& sample = knobSamples[(size_t) i];
-        const bool active = sample.value > 0.0f;
 
-        g.setColour (active ? theme::toxic : theme::mutedForeground);
-        g.setFont (theme::Fonts::uiChrome());
+        g.setColour (theme::inkMeta);
+        g.setFont (theme::Fonts::monoLabel (10.0f));
         g.drawText (sample.label, labelArea, juce::Justification::centred, false);
 
         const float startA = juce::degreesToRadians (-135.0f);
         const float endA   = juce::degreesToRadians ( 135.0f);
 
-        // We draw the knob via SpectreLookAndFeel directly. Sliders aren't
-        // needed - this is a paint-only screen.
         juce::Slider stub;
         stub.setLookAndFeel (lnf.get());
         lnf->drawRotarySlider (g,
@@ -273,8 +176,8 @@ void ThemeTest::paintKnobs (juce::Graphics& g, juce::Rectangle<int> area)
                                sample.value, startA, endA, stub);
         stub.setLookAndFeel (nullptr);
 
-        g.setColour (active ? theme::toxic : theme::mutedForeground);
-        g.setFont (theme::Fonts::monoData());
+        g.setColour (theme::inkBody);
+        g.setFont (theme::Fonts::mono (13.0f, 0.05f));
         g.drawText (juce::String (juce::roundToInt (sample.value * 100.0f)),
                     valueArea, juce::Justification::centred, false);
     }
@@ -282,18 +185,18 @@ void ThemeTest::paintKnobs (juce::Graphics& g, juce::Rectangle<int> area)
 
 void ThemeTest::paintModes (juce::Graphics& g, juce::Rectangle<int> area)
 {
-    drawCard (g, area.toFloat(), theme::surfaceContainer, theme::outlineVariant, 12.0f);
+    auto inner = area;
+    auto headerStrip = inner.removeFromTop (16);
 
-    auto inner = area.reduced (20);
-    auto headerStrip = inner.removeFromTop (24);
-    drawSectionLabel (g, headerStrip, "AMP PROFILE", theme::mutedForeground);
+    g.setColour (theme::inkMeta);
+    g.setFont (theme::Fonts::monoLabel (10.0f));
+    g.drawText ("AMP PROFILE", headerStrip, juce::Justification::centredLeft, false);
 
-    inner.removeFromTop (12);
+    inner.removeFromTop (16);
 
-    // 2 columns x 3 rows
     const int cols = 2;
     const int rows = 3;
-    const int gap  = 12;
+    const int gap  = 8;
 
     const int cellW = (inner.getWidth()  - gap * (cols - 1)) / cols;
     const int cellH = (inner.getHeight() - gap * (rows - 1)) / rows;
@@ -308,11 +211,6 @@ void ThemeTest::paintModes (juce::Graphics& g, juce::Rectangle<int> area)
             cellW, cellH);
 
         const auto& sample = modeSamples[(size_t) i];
-        // Use the LAF directly so the rendering exactly matches what real
-        // mode buttons will get in Phase 2. drawButtonBackground reads
-        // button.getLocalBounds() which is always (0,0,w,h) - JUCE's normal
-        // paint pipeline translates Graphics before calling, so we do the
-        // same here for a paint-only path.
         juce::TextButton stub (sample.label);
         stub.setToggleState (sample.active, juce::dontSendNotification);
         stub.setBounds (0, 0, cell.getWidth(), cell.getHeight());
@@ -326,181 +224,101 @@ void ThemeTest::paintModes (juce::Graphics& g, juce::Rectangle<int> area)
                                        sample.hover, false);
         }
 
-        // Draw label in screen-space coords directly.
-        g.setColour (sample.active ? theme::onPrimaryContainer : theme::mutedForeground);
-        auto labelFont = theme::Fonts::monoData();
-        if (sample.active)
-            labelFont = labelFont.withStyle (juce::Font::bold);
-        g.setFont (labelFont);
+        g.setColour (sample.active ? theme::inkPrimary
+                     : sample.hover ? theme::inkBody
+                                    : theme::inkMeta);
+        g.setFont (theme::Fonts::monoLabel (11.0f));
         g.drawText (sample.label, cell, juce::Justification::centred, false);
     }
 }
 
 void ThemeTest::paintHero (juce::Graphics& g, juce::Rectangle<int> area)
 {
-    drawCard (g, area.toFloat(), theme::surfaceElevated, theme::outlineVariant, 12.0f);
+    g.setColour (theme::inkMeta);
+    g.setFont (theme::Fonts::monoLabel (10.0f));
+    g.drawText ("FIZZ AMOUNT", area.removeFromTop (16),
+                juce::Justification::centredLeft, false);
+    area.removeFromTop (12);
 
-    // Top edge gradient sweep
-    auto sweep = juce::Rectangle<float> (
-        static_cast<float> (area.getX()),
-        static_cast<float> (area.getY()),
-        static_cast<float> (area.getWidth()), 1.0f);
-    juce::ColourGradient sg (
-        juce::Colours::transparentBlack, sweep.getX(), sweep.getY(),
-        juce::Colours::transparentBlack, sweep.getRight(), sweep.getY(), false);
-    sg.addColour (0.5, theme::toxic);
-    g.setGradientFill (sg);
-    g.fillRect (sweep);
+    g.setFont (theme::Fonts::mono (66.0f, -0.04f));
+    g.setColour (theme::inkPrimary);
+    g.drawText ("66.1", area, juce::Justification::centred, false);
 
-    auto inner = area.reduced (24);
-    auto labelArea = inner.removeFromTop (20);
-    drawSectionLabel (g, labelArea, "FIZZ AMOUNT", theme::mutedForeground);
-
-    // Big number with %
-    g.setFont (theme::Fonts::heroNum());
-    auto numArea = inner.toFloat().translated (0, 4);
-    theme::SpectreLookAndFeel::drawGlowText (g, "66.1",
-                                             numArea, juce::Justification::centred,
-                                             theme::toxic, theme::toxic, 12.0f);
-
-    // % suffix is smaller; draw on top of the number's right edge
-    g.setFont (theme::Fonts::displayTitle().withHeight (32.0f));
-    g.setColour (theme::toxic);
-    auto suffix = numArea.translated (160.0f, 12.0f);
-    g.drawText ("%", suffix, juce::Justification::centred, false);
+    drawRule (g, { area.getX(), area.getBottom() - 1, area.getWidth(), 1 });
 }
 
 void ThemeTest::paintMeters (juce::Graphics& g, juce::Rectangle<int> area)
 {
-    auto headerStrip = area.removeFromTop (40);
-    drawSectionLabel (g, headerStrip.removeFromLeft (200), "SPECTRAL ANALYSIS", theme::mutedForeground);
-    g.setColour (theme::toxic);
-    g.setFont (theme::Fonts::uiChrome());
+    auto headerStrip = area.removeFromTop (32);
+    g.setFont (theme::Fonts::monoLabel (10.0f));
+    g.setColour (theme::inkMeta);
+    g.drawText ("SPECTRAL ANALYSIS", headerStrip.removeFromLeft (200),
+                juce::Justification::centredLeft, false);
     g.drawText ("WASP METER", headerStrip, juce::Justification::centredRight, false);
+    area.removeFromTop (8);
 
-    g.setColour (theme::outlineVariant.withAlpha (0.4f));
-    g.fillRect (area.removeFromTop (1));
+    auto frame = area.withTrimmedBottom (48);
+    g.setColour (theme::surface1);
+    g.fillRect (frame);
+    g.setColour (theme::rule);
+    g.drawRect (frame, 1);
 
-    // Spectral bars - 16 simulated heights matching the Stitch reference set.
-    auto label = area.removeFromBottom (32);
-    auto bars  = area.reduced (8, 4);
+    theme::SpectreLookAndFeel::drawScanlines (g, frame.reduced (1), 0.05f, 3);
 
-    constexpr int  N = 16;
+    auto inner = frame.reduced (1);
+    inner.removeFromLeft (48);
+    auto plot = inner.reduced (12, 12).withTrimmedLeft (4);
+
+    // Reference spectrum, quiet fill.
+    constexpr int N = 16;
     constexpr float heights[N] = {
-        0.10f, 0.15f, 0.25f, 0.40f, 0.35f,
-        0.60f, 0.85f, 0.95f, 0.75f,
+        0.10f, 0.15f, 0.25f, 0.22f, 0.35f,
+        0.30f, 0.60f, 0.85f, 0.75f,
         0.50f, 0.30f, 0.20f, 0.10f, 0.05f,
         0.05f, 0.05f
     };
-
-    const float gap   = 2.0f;
-    const float total = static_cast<float> (bars.getWidth());
-    const float bw    = (total - gap * (N - 1)) / N;
-
+    juce::Path shape;
+    const float w = static_cast<float> (plot.getWidth());
+    shape.startNewSubPath (static_cast<float> (plot.getX()),
+                           static_cast<float> (plot.getBottom()));
     for (int i = 0; i < N; ++i)
-    {
-        const float h = bars.getHeight() * heights[i];
-        const float x = bars.getX() + i * (bw + gap);
-        const float y = bars.getBottom() - h;
-        const auto rect = juce::Rectangle<float> (x, y, bw, h);
+        shape.lineTo (plot.getX() + w * static_cast<float> (i) / static_cast<float> (N - 1),
+                      plot.getBottom() - heights[i] * plot.getHeight());
+    shape.lineTo (static_cast<float> (plot.getRight()),
+                  static_cast<float> (plot.getBottom()));
+    shape.closeSubPath();
+    g.setColour (theme::rule.withAlpha (0.55f));
+    g.fillPath (shape);
 
-        juce::Colour fill = theme::surfaceContainerHighest;
-        if (heights[i] > 0.55f)      fill = theme::toxic;
-        else if (heights[i] > 0.35f) fill = theme::toxic.withAlpha (0.5f);
-
-        g.setColour (fill);
-        g.fillRoundedRectangle (rect, 1.5f);
-
-        if (heights[i] > 0.55f)
-        {
-            g.setColour (theme::toxic.withAlpha (0.18f));
-            g.fillRoundedRectangle (rect.expanded (3.0f), 3.0f);
-        }
-    }
-
-    // Frequency labels
-    g.setFont (theme::Fonts::uiChrome().withHeight (10.0f));
-    g.setColour (theme::mutedForeground);
-    const juce::StringArray freqs { "1k", "2k", "5k", "8k", "12k", "20k" };
-    const float step = static_cast<float> (label.getWidth()) / static_cast<float> (freqs.size() - 1);
-    for (int i = 0; i < freqs.size(); ++i)
-    {
-        auto lr = juce::Rectangle<int> (
-            label.getX() + (int) (i * step) - 16, label.getY(),
-            32, label.getHeight() / 2);
-        g.drawText (freqs[i], lr, juce::Justification::centred, false);
-    }
-    const juce::StringArray zones { "BITE", "PLASTIC", "WASP", "SAND", "AIR", "ICE" };
-    g.setColour (theme::toxic.withAlpha (0.55f));
-    for (int i = 0; i < zones.size(); ++i)
-    {
-        auto lr = juce::Rectangle<int> (
-            label.getX() + (int) (i * step) - 28,
-            label.getY() + label.getHeight() / 2 + 2,
-            56, label.getHeight() / 2);
-        g.drawText (zones[i], lr, juce::Justification::centred, false);
-    }
+    // Reduction curve, primary ink.
+    juce::Path curve;
+    curve.startNewSubPath (static_cast<float> (plot.getX()),
+                           static_cast<float> (plot.getBottom()));
+    const float py = static_cast<float> (plot.getY());
+    const float cx = static_cast<float> (plot.getCentreX());
+    const float pb = static_cast<float> (plot.getBottom());
+    const float ph = static_cast<float> (plot.getHeight());
+    curve.quadraticTo (cx - w * 0.1f, py + ph * 0.1f,
+                       cx,            py + ph * 0.35f);
+    curve.quadraticTo (cx + w * 0.1f, py + ph * 0.6f,
+                       static_cast<float> (plot.getRight()), pb);
+    g.setColour (theme::inkPrimary);
+    g.strokePath (curve, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved));
 }
 
 void ThemeTest::paintFooter (juce::Graphics& g, juce::Rectangle<int> area)
 {
-    g.setColour (theme::outlineVariant);
-    g.fillRect (area.removeFromTop (1));
-    g.setColour (theme::surfaceContainerLowest);
-    g.fillRect (area);
+    drawRule (g, area.removeFromTop (1));
 
-    auto inner = area.reduced (20, 0);
+    auto inner = area.reduced (24, 0);
 
-    // Left: THE CRYPT + IN/OUT meters
-    auto left = inner.removeFromLeft (320);
-    g.setColour (theme::mutedForeground);
-    g.setFont (theme::Fonts::uiChrome());
-    g.drawText ("THE CRYPT", left.removeFromLeft (96), juce::Justification::centredLeft, false);
-    g.setColour (theme::outlineVariant);
-    g.fillRect (left.removeFromLeft (1).reduced (0, 8));
-    left.removeFromLeft (16);
+    const juce::String status { "V0.1.0 / PROCESSING" };
+    g.setFont (theme::Fonts::monoLabel (10.0f));
+    g.setColour (theme::inkMeta);
+    g.drawText (status, inner, juce::Justification::centredRight, false);
 
-    auto inMeter  = left.removeFromLeft (112).reduced (0, 18);
-    left.removeFromLeft (8);
-    auto outMeter = left.removeFromLeft (124).reduced (0, 18);
-
-    auto labelWidth = [] (const juce::Font& font, const juce::String& s)
-    {
-        juce::GlyphArrangement ga;
-        ga.addLineOfText (font, s, 0.0f, 0.0f);
-        return ga.getBoundingBox (0, -1, true).getWidth();
-    };
-
-    auto drawMeter = [&] (juce::Rectangle<int> area, juce::String label, float fill)
-    {
-        const int labelW = juce::jmax (24,
-            juce::roundToInt (labelWidth (theme::Fonts::uiChrome(), label) + 6.0f));
-        g.setColour (theme::mutedForeground);
-        g.drawText (label, area.removeFromLeft (labelW),
-                    juce::Justification::centredLeft, false);
-        const auto pill = area.toFloat();
-        g.setColour (theme::surfaceContainerHighest);
-        g.fillRoundedRectangle (pill, pill.getHeight() * 0.5f);
-        g.setColour (theme::toxic);
-        g.fillRoundedRectangle (pill.withWidth (pill.getWidth() * fill),
-                                pill.getHeight() * 0.5f);
-    };
-
-    drawMeter (inMeter,  "IN",  0.70f);
-    drawMeter (outMeter, "OUT", 0.85f);
-
-    // Right: OS + version chrome
-    auto right = inner.removeFromRight (480);
-    g.setFont (theme::Fonts::uiChrome());
-    g.setColour (theme::toxic);
-    g.drawText ("V0.1.0  /  SCANNING FOR HARSHNESS",
-                right, juce::Justification::centredRight, false);
-
-    auto osArea = right.removeFromRight (180).translated (-220, 0);
-    g.setColour (theme::mutedForeground);
-    g.drawText ("OS:", osArea.removeFromLeft (28), juce::Justification::centredLeft, false);
-    g.setColour (theme::toxic);
-    g.setFont (theme::Fonts::monoData());
-    g.drawText ("OFF", osArea, juce::Justification::centredLeft, false);
+    auto left = inner.removeFromLeft (240);
+    g.setColour (theme::inkMeta);
+    g.drawText ("IN", left.removeFromLeft (28), juce::Justification::centredLeft, false);
 }
 } // namespace cabrot::ui

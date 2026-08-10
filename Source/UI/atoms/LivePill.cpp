@@ -22,14 +22,14 @@ LivePill::~LivePill()
 void LivePill::visibilityChanged()
 {
     if (isShowing())
-        startTimerHz (60);
+        startTimerHz (30);
     else
         stopTimer();
 }
 
 void LivePill::timerCallback()
 {
-    pulsePhase += 1.0f / 60.0f;
+    pulsePhase += 1.0f / 90.0f; // 3 second cycle, quiet atmosphere motion
     if (pulsePhase > 1.0f)
         pulsePhase -= 1.0f;
     repaint();
@@ -37,30 +37,21 @@ void LivePill::timerCallback()
 
 void LivePill::paint (juce::Graphics& g)
 {
-    const auto area   = getLocalBounds().toFloat();
-    const float radius = area.getHeight() * 0.5f;
+    const auto area = getLocalBounds().toFloat();
 
-    g.setColour (theme::surfaceContainer);
-    g.fillRoundedRectangle (area, radius);
-    g.setColour (theme::outlineVariant);
-    g.drawRoundedRectangle (area, radius, 1.0f);
+    // Live state mark: a small square in stateLive, quietly breathing
+    // between 40 and 100 percent. This, and the footer meters, are the
+    // only places state colour appears outside the damage threshold.
+    const float pulse = 0.70f + 0.30f * std::sin (pulsePhase * juce::MathConstants<float>::twoPi);
+    const float side  = 7.0f;
+    const auto  centre = juce::Point<float> (area.getX() + side + 2.0f, area.getCentreY());
 
-    const float pulse  = 0.55f + 0.45f * std::sin (pulsePhase * juce::MathConstants<float>::twoPi);
-    const float dotRad = juce::jmin (area.getHeight() * 0.32f, 4.5f);
-    const auto  centre = juce::Point<float> (area.getX() + radius, area.getCentreY());
+    g.setColour (theme::stateLive.withAlpha (pulse));
+    g.fillRect (juce::Rectangle<float> (side, side).withCentre (centre));
 
-    // Halo
-    g.setColour (theme::toxic.withAlpha (0.18f * pulse));
-    g.fillEllipse (juce::Rectangle<float> (dotRad * 4.0f, dotRad * 4.0f).withCentre (centre));
-    g.setColour (theme::toxic.withAlpha (0.45f));
-    g.fillEllipse (juce::Rectangle<float> (dotRad * 2.5f, dotRad * 2.5f).withCentre (centre));
-    // Dot
-    g.setColour (theme::toxic);
-    g.fillEllipse (juce::Rectangle<float> (dotRad * 2.0f, dotRad * 2.0f).withCentre (centre));
-
-    auto labelArea = area.withTrimmedLeft (radius * 2.0f + 4.0f).withTrimmedRight (radius * 0.5f);
-    g.setColour (theme::toxic);
-    g.setFont   (theme::Fonts::uiChrome());
+    auto labelArea = area.withTrimmedLeft (side * 2.0f + 10.0f);
+    g.setColour (theme::inkMeta);
+    g.setFont   (theme::Fonts::monoLabel (10.0f));
     g.drawText  ("LIVE", labelArea, juce::Justification::centredLeft, false);
 }
 } // namespace cabrot::ui

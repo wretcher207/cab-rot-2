@@ -5,18 +5,26 @@
 
 namespace cabrot::ui
 {
+namespace
+{
+// Version plus real processing state, mono metadata grey. The old
+// "SCANNING FOR HARSHNESS" suffix described a costume, not a state.
+const juce::String kStatusText { "V0.1.0 / PROCESSING" };
+
+int statusTextWidth()
+{
+    juce::GlyphArrangement va;
+    va.addLineOfText (theme::Fonts::monoLabel (10.0f), kStatusText, 0.0f, 0.0f);
+    return juce::roundToInt (va.getBoundingBox (0, -1, true).getWidth() + 8.0f);
+}
+}
+
 FooterBar::FooterBar()
 {
-    cryptButton.setLookAndFeel (nullptr); // use default LAF behaviour for now
-    cryptButton.setConnectedEdges (0);
-    cryptButton.setColour (juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    cryptButton.setColour (juce::TextButton::textColourOffId, theme::mutedForeground);
-    addAndMakeVisible (cryptButton);
-
     addAndMakeVisible (inMeter);
     addAndMakeVisible (outMeter);
 
-    // PHASE 2 PLACEHOLDER: meter levels echo Stitch's static values.
+    // Placeholder levels until Phase 6 wires live metering.
     inMeter.setLevel  (0.70f);
     outMeter.setLevel (0.85f);
 
@@ -24,17 +32,14 @@ FooterBar::FooterBar()
     bButton.setRadioGroupId (2, juce::dontSendNotification);
     aButton.setClickingTogglesState (true);
     bButton.setClickingTogglesState (true);
-    aButton.setToggleState (true, juce::dontSendNotification); // PHASE 2 PLACEHOLDER
-    aButton.setConnectedEdges (juce::Button::ConnectedOnRight);
-    bButton.setConnectedEdges (juce::Button::ConnectedOnLeft);
     addAndMakeVisible (aButton);
     addAndMakeVisible (bButton);
 
-    // Locked decision #2: Off / 2x / 4x. Default Off.
+    // Locked decision: Off / 2x / 4x. Default Off.
     oversample.addItem ("OFF", 1);
     oversample.addItem ("2X",  2);
     oversample.addItem ("4X",  3);
-    oversample.setSelectedId (1, juce::dontSendNotification); // PHASE 2 PLACEHOLDER: APVTS attachment in Phase 3
+    oversample.setSelectedId (1, juce::dontSendNotification);
     oversample.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (oversample);
 }
@@ -42,62 +47,49 @@ FooterBar::FooterBar()
 void FooterBar::paint (juce::Graphics& g)
 {
     auto area = getLocalBounds();
-    g.setColour (theme::outlineVariant);
+    g.setColour (theme::rule);
     g.fillRect (area.removeFromTop (1));
-    g.setColour (theme::surfaceContainerLowest);
+    g.setColour (theme::canvas);
     g.fillRect (area);
 
-    auto inner = area.reduced (20, 0);
+    auto inner = area.reduced (24, 0);
 
-    // Vertical divider after THE CRYPT
-    const int cryptEnd = inner.getX() + 96;
-    g.setColour (theme::outlineVariant);
-    g.fillRect (juce::Rectangle<int> (cryptEnd + 12, inner.getCentreY() - 8, 1, 16));
-
-    // OS: label
-    // Version chrome on the far right (measure width so we never clip it).
-    juce::GlyphArrangement va;
-    const auto versionText = juce::String ("V0.1.0  /  SCANNING FOR HARSHNESS");
-    va.addLineOfText (theme::Fonts::uiChrome(), versionText, 0.0f, 0.0f);
-    const int versionW = juce::roundToInt (va.getBoundingBox (0, -1, true).getWidth() + 8.0f);
+    const int versionW = statusTextWidth();
     auto versionArea = inner.removeFromRight (versionW);
 
-    g.setColour (theme::toxic);
-    g.setFont   (theme::Fonts::uiChrome());
-    g.drawText  (versionText, versionArea, juce::Justification::centredRight, false);
+    g.setColour (theme::inkMeta);
+    g.setFont   (theme::Fonts::monoLabel (10.0f));
+    g.drawText  (kStatusText, versionArea, juce::Justification::centredRight, false);
 
-    // 1 px divider between OS combo and version chrome
-    g.setColour (theme::outlineVariant);
-    g.fillRect (juce::Rectangle<int> (versionArea.getX() - 12,
+    // Divider between OS combo and status text.
+    g.setColour (theme::rule);
+    g.fillRect (juce::Rectangle<int> (versionArea.getX() - 16,
                                       inner.getCentreY() - 8, 1, 16));
-    inner.removeFromRight (24);
+    inner.removeFromRight (32);
 
-    // OS combo box reserves its own slot; resized() positions it. Reserve
-    // 64 px on the right side here so the OS: label sits to its left.
-    inner.removeFromRight (64);
-    inner.removeFromRight (8);
-    auto osLabel = inner.removeFromRight (28);
-    g.setColour (theme::mutedForeground);
-    g.setFont   (theme::Fonts::uiChrome());
+    // OS combo reserves 68 px; the label sits to its left.
+    inner.removeFromRight (68);
+    inner.removeFromRight (4);
+    auto osLabel = inner.removeFromRight (24);
+    g.setColour (theme::inkMeta);
+    g.setFont   (theme::Fonts::monoLabel (10.0f));
     g.drawText  ("OS:", osLabel, juce::Justification::centredRight, false);
 }
 
 void FooterBar::resized()
 {
-    const auto inner = getLocalBounds().reduced (20, 0);
+    const auto inner = getLocalBounds().reduced (24, 0);
 
-    cryptButton.setBounds (inner.getX(), inner.getY(), 96, inner.getHeight());
+    const int meterY = inner.getCentreY() - 8;
+    const int meterH = 16;
+    const int meterW = 96;
 
-    const int meterY  = inner.getCentreY() - 9;
-    const int meterH  = 18;
-    const int meterW  = 100;
-
-    int cursor = inner.getX() + 96 + 24;
+    int cursor = inner.getX();
     inMeter.setBounds  (cursor, meterY, meterW, meterH);
-    cursor += meterW + 12;
-    outMeter.setBounds (cursor, meterY, meterW + 16, meterH);
+    cursor += meterW + 16;
+    outMeter.setBounds (cursor, meterY, meterW + 12, meterH);
 
-    // A/B toggle, 56 px wide centered
+    // A/B toggle, 56 px wide, centered on the full inner width.
     const int abW = 56;
     const int abH = 22;
     const int abY = inner.getCentreY() - abH / 2;
@@ -105,17 +97,11 @@ void FooterBar::resized()
     aButton.setBounds (abX, abY, abW / 2, abH);
     bButton.setBounds (abX + abW / 2, abY, abW / 2, abH);
 
-    // Oversample combo: between the OS: label and the version chrome divider.
-    juce::GlyphArrangement va;
-    va.addLineOfText (theme::Fonts::uiChrome(), "V0.1.0  /  SCANNING FOR HARSHNESS", 0.0f, 0.0f);
-    const int versionW = juce::roundToInt (va.getBoundingBox (0, -1, true).getWidth() + 8.0f);
-
-    const int comboW = 64;
+    // Oversample combo: between the OS: label and the status divider.
+    const int comboW = 68;
     const int comboH = 22;
     const int comboY = inner.getCentreY() - comboH / 2;
-    // versionArea right edge -> versionW left of inner.getRight()
-    // divider gap 24, then the combo.
-    const int comboRight = inner.getRight() - versionW - 24;
+    const int comboRight = inner.getRight() - statusTextWidth() - 32;
     oversample.setBounds (comboRight - comboW, comboY, comboW, comboH);
 }
 } // namespace cabrot::ui

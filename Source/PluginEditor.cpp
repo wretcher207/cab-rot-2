@@ -165,7 +165,6 @@ void CabRotEditor::wireAttachments()
     // formatting through param.getText() for popup-menu "Enter value..."
     // dialogs. No extra wiring needed.
     headerBar.getDeltaToggle().setTooltip ("Delta Listen: hear the removed signal");
-    footerBar.getCryptButton() .setTooltip ("The Crypt: advanced parameters");
     footerBar.getButtonA()     .setTooltip ("A/B: select snapshot A");
     footerBar.getButtonB()     .setTooltip ("A/B: select snapshot B");
     footerBar.getOversampleBox().setTooltip ("Oversampling factor");
@@ -191,23 +190,10 @@ bool CabRotEditor::keyPressed (const juce::KeyPress& key, juce::Component*)
 
 void CabRotEditor::paint (juce::Graphics& g)
 {
-    const auto bounds = getLocalBounds();
-
-    g.setColour (theme::surfaceContainerLowest);
-    g.fillRect (bounds);
-
-    juce::ColourGradient grad (
-        theme::surfaceContainerLow,
-        static_cast<float> (bounds.getCentreX()),
-        static_cast<float> (bounds.getCentreY()),
-        theme::surfaceContainerLowest,
-        0.0f, static_cast<float> (bounds.getHeight()),
-        true);
-    g.setGradientFill (grad);
-    g.fillRect (bounds);
-
-    g.setColour (theme::outlineVariant.withAlpha (0.30f));
-    g.drawRect (bounds.reduced (1), 1);
+    // Flat brand canvas. No vignette, no gradient, no chrome: the spectral
+    // display is the only element allowed to dominate.
+    g.setColour (theme::canvas);
+    g.fillRect (getLocalBounds());
 }
 
 void CabRotEditor::resized()

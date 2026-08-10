@@ -6,11 +6,10 @@
 
 namespace cabrot::ui
 {
-// CANONICAL-UI §7.5. 48 px tall band at the bottom of the editor.
-// Three regions:
-//   left:   THE CRYPT button + IN/OUT meters
+// 48 px tall band at the bottom of the editor. Three regions:
+//   left:   IN/OUT level meters
 //   center: A/B compare toggle
-//   right:  Oversampling combo + version chrome
+//   right:  oversampling combo + version and processing state
 
 class FooterBar final : public juce::Component
 {
@@ -21,13 +20,11 @@ public:
     void paint   (juce::Graphics&) override;
     void resized() override;
 
-    juce::TextButton& getCryptButton()  noexcept { return cryptButton; }
     juce::TextButton& getButtonA()      noexcept { return aButton; }
     juce::TextButton& getButtonB()      noexcept { return bButton; }
     juce::ComboBox&   getOversampleBox() noexcept { return oversample; }
 
 private:
-    juce::TextButton cryptButton  { "THE CRYPT" };
     juce::TextButton aButton      { "A" };
     juce::TextButton bButton      { "B" };
     MeterPill        inMeter      { "IN" };

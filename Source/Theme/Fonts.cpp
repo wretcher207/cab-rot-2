@@ -40,54 +40,65 @@ juce::Font withFace (juce::Typeface::Ptr face, float pixels, float kerning)
     return f;
 }
 
-juce::Typeface::Ptr g_displayBold;
-juce::Typeface::Ptr g_displayMedium;
-juce::Typeface::Ptr g_displayRegular;
-juce::Typeface::Ptr g_monoRegular;
-juce::Typeface::Ptr g_monoBold;
+juce::Typeface::Ptr g_dpdDisplay;
+juce::Typeface::Ptr g_inter;
+juce::Typeface::Ptr g_interMedium;
+juce::Typeface::Ptr g_mono;
 }
 
-juce::Typeface::Ptr Fonts::displayBold()
+juce::Typeface::Ptr Fonts::dpdDisplay()
 {
-    return cached (g_displayBold, BinaryData::SpaceGroteskBold_ttf, BinaryData::SpaceGroteskBold_ttfSize);
+    return cached (g_dpdDisplay, BinaryData::DPDDisplayRegular_ttf, BinaryData::DPDDisplayRegular_ttfSize);
 }
-juce::Typeface::Ptr Fonts::displayMedium()
+juce::Typeface::Ptr Fonts::inter()
 {
-    return cached (g_displayMedium, BinaryData::SpaceGroteskMedium_ttf, BinaryData::SpaceGroteskMedium_ttfSize);
+    return cached (g_inter, BinaryData::InterRegular_ttf, BinaryData::InterRegular_ttfSize);
 }
-juce::Typeface::Ptr Fonts::displayRegular()
+juce::Typeface::Ptr Fonts::interMedium()
 {
-    return cached (g_displayRegular, BinaryData::SpaceGroteskRegular_ttf, BinaryData::SpaceGroteskRegular_ttfSize);
+    return cached (g_interMedium, BinaryData::InterMedium_ttf, BinaryData::InterMedium_ttfSize);
 }
-juce::Typeface::Ptr Fonts::monoRegular()
+juce::Typeface::Ptr Fonts::mono()
 {
-    return cached (g_monoRegular, BinaryData::JetBrainsMonoRegular_ttf, BinaryData::JetBrainsMonoRegular_ttfSize);
-}
-juce::Typeface::Ptr Fonts::monoBold()
-{
-    return cached (g_monoBold, BinaryData::JetBrainsMonoBold_ttf, BinaryData::JetBrainsMonoBold_ttfSize);
+    return cached (g_mono, BinaryData::JetBrainsMonoRegular_ttf, BinaryData::JetBrainsMonoRegular_ttfSize);
 }
 
-juce::Font Fonts::displayTitle() { return withFace (displayBold(),    24.0f, -0.02f); }
-juce::Font Fonts::heroNum()      { return withFace (displayBold(),    80.0f, -0.05f); }
-juce::Font Fonts::body()         { return withFace (displayRegular(), 16.0f,  0.00f); }
-juce::Font Fonts::uiChrome()     { return withFace (monoRegular(),    11.0f,  0.30f); }
-juce::Font Fonts::monoData()     { return withFace (monoRegular(),    14.0f,  0.10f); }
+juce::Font Fonts::wordmark() { return withFace (dpdDisplay(), 24.0f, 0.30f); }
 
-juce::Font Fonts::displayTitleScaled (float scale)
+juce::Font Fonts::display (float heightPx, float trackingEm)
 {
-    return withFace (displayBold(), juce::jlimit (16.0f, 36.0f, 24.0f * scale), -0.02f);
+    return withFace (dpdDisplay(), heightPx, trackingEm);
 }
-juce::Font Fonts::heroNumScaled (float scale)
+
+juce::Font Fonts::body (float heightPx, bool medium)
 {
-    return withFace (displayBold(), juce::jlimit (56.0f, 120.0f, 80.0f * scale), -0.05f);
+    return withFace (medium ? interMedium() : inter(), heightPx, 0.0f);
 }
-juce::Font Fonts::uiChromeScaled (float scale)
+
+juce::Font Fonts::mono (float heightPx, float trackingEm)
 {
-    return withFace (monoRegular(), juce::jlimit (9.0f, 14.0f, 11.0f * scale), 0.30f);
+    return withFace (mono(), heightPx, trackingEm);
 }
-juce::Font Fonts::monoDataScaled (float scale)
+
+juce::Font Fonts::monoLabel (float heightPx)
 {
-    return withFace (monoRegular(), juce::jlimit (11.0f, 18.0f, 14.0f * scale), 0.10f);
+    return withFace (mono(), heightPx, 0.18f);
+}
+
+juce::Font Fonts::wordmarkScaled (float scale)
+{
+    return withFace (dpdDisplay(), juce::jlimit (18.0f, 34.0f, 24.0f * scale), 0.30f);
+}
+juce::Font Fonts::displayScaled (float scale, float refPx, float floorPx)
+{
+    return withFace (dpdDisplay(), juce::jmax (floorPx, refPx * scale), 0.06f);
+}
+juce::Font Fonts::monoScaled (float scale, float refPx, float floorPx, float trackingEm)
+{
+    return withFace (mono(), juce::jmax (floorPx, refPx * scale), trackingEm);
+}
+juce::Font Fonts::monoLabelScaled (float scale, float refPx, float floorPx)
+{
+    return withFace (mono(), juce::jmax (floorPx, refPx * scale), 0.18f);
 }
 } // namespace cabrot::theme

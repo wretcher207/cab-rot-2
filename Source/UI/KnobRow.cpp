@@ -1,7 +1,6 @@
 #include "KnobRow.h"
 
 #include "../Theme/Palette.h"
-#include "../Theme/SpectreLookAndFeel.h"
 
 namespace cabrot::ui
 {
@@ -9,8 +8,7 @@ namespace
 {
 struct KnobSeed { juce::String label; double value; };
 
-// PHASE 2 PLACEHOLDER: knob values mirror the Stitch reference. Phase 3
-// replaces with APVTS bindings via SliderAttachment.
+// Placeholder values; the APVTS SliderAttachments own the real state.
 constexpr int kSeedCount = KnobRow::kNumKnobs;
 const std::array<KnobSeed, kSeedCount> kSeeds {{
     { "FIZZ HUNT",     62.0 },
@@ -39,12 +37,10 @@ void KnobRow::paint (juce::Graphics& g)
 {
     auto area = getLocalBounds();
 
-    g.setColour (theme::outlineVariant);
+    g.setColour (theme::rule);
     g.fillRect (area.removeFromTop (1));
-    g.setColour (theme::surfaceContainer.withAlpha (0.6f));
+    g.setColour (theme::canvas);
     g.fillRect (area);
-
-    theme::SpectreLookAndFeel::drawScanlines (g, area, 0.10f, 4);
 }
 
 void KnobRow::resized()

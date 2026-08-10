@@ -2,7 +2,6 @@
 
 #include "../Theme/Fonts.h"
 #include "../Theme/Palette.h"
-#include "../Theme/SpectreLookAndFeel.h"
 
 namespace cabrot::ui
 {
@@ -13,53 +12,46 @@ FizzReadout::FizzReadout()
 
 void FizzReadout::paint (juce::Graphics& g)
 {
-    auto area = getLocalBounds().toFloat();
+    auto area = getLocalBounds();
 
-    g.setColour (theme::surfaceElevated);
-    g.fillRoundedRectangle (area, 12.0f);
-    g.setColour (theme::outlineVariant);
-    g.drawRoundedRectangle (area, 12.0f, 1.0f);
-
-    // Top-edge sweep
-    juce::ColourGradient sweep (
-        juce::Colours::transparentBlack, area.getX(),     area.getY(),
-        juce::Colours::transparentBlack, area.getRight(), area.getY(), false);
-    sweep.addColour (0.5, theme::toxic);
-    g.setGradientFill (sweep);
-    g.fillRect (juce::Rectangle<float> (area.getX(), area.getY(), area.getWidth(), 1.0f));
-
-    auto inner = getLocalBounds().reduced (24);
-
-    auto labelArea = inner.removeFromTop (20);
-    g.setColour (theme::mutedForeground);
-    g.setFont   (theme::Fonts::uiChrome());
+    auto labelArea = area.removeFromTop (16);
+    g.setColour (theme::inkMeta);
+    g.setFont   (theme::Fonts::monoLabel (10.0f));
     g.drawText  ("FIZZ AMOUNT", labelArea, juce::Justification::centredLeft, false);
 
-    // Hero number with glow. Scaled to fit the available height while
-    // honoring the canonical 80 px reference at default size.
-    const float scale = static_cast<float> (inner.getHeight()) / 124.0f;
-    auto heroFont = theme::Fonts::heroNumScaled (scale).withExtraKerningFactor (-0.05f);
+    area.removeFromTop (12);
+
+    // The number is a numeric readout, so it renders in JetBrains Mono even
+    // at display size. No glow, no halo: just primary ink on the ground.
+    const float numPx = juce::jlimit (44.0f, 96.0f, static_cast<float> (area.getHeight()) * 0.62f);
+    auto heroFont = theme::Fonts::mono (numPx, -0.04f);
     g.setFont (heroFont);
 
     const auto numText = juce::String (displayValue, 1);
-    auto numArea = inner.toFloat().translated (0, 4.0f);
-    theme::SpectreLookAndFeel::drawGlowText (g, numText, numArea,
-                                             juce::Justification::centred,
-                                             theme::toxic, theme::toxic, 12.0f);
+    g.setColour (theme::inkPrimary);
+    g.drawText (numText, area, juce::Justification::centred, false);
 
-    // Smaller % suffix to the right.
-    auto suffixFont = theme::Fonts::displayTitle().withHeight (juce::jmax (24.0f, heroFont.getHeight() * 0.40f));
-    g.setFont   (suffixFont);
-    g.setColour (theme::toxic);
-
+    // Percent sign in metadata grey, smaller, hugging the number.
+    auto suffixFont = theme::Fonts::mono (juce::jmax (20.0f, numPx * 0.36f));
     juce::GlyphArrangement ga;
     ga.addLineOfText (heroFont, numText, 0.0f, 0.0f);
     const float numW = ga.getBoundingBox (0, -1, true).getWidth();
 
-    const float suffixX = inner.getCentreX() + numW * 0.5f + 4.0f;
+    const float suffixX = area.getCentreX() + numW * 0.5f + 4.0f;
+    g.setFont   (suffixFont);
+    g.setColour (theme::inkMeta);
     g.drawText ("%",
-                juce::Rectangle<float> (suffixX, numArea.getY() + numArea.getHeight() * 0.18f,
-                                        suffixFont.getHeight() * 0.85f, suffixFont.getHeight()),
+                juce::Rectangle<float> (suffixX,
+                                        area.getY() + numPx * 0.16f,
+                                        suffixFont.getHeight() * 1.0f,
+                                        suffixFont.getHeight()),
                 juce::Justification::centredLeft, false);
+
+    const auto bottom = getLocalBounds();
+    g.setColour (theme::rule);
+    g.fillRect (bottom.getX(),
+                bottom.getBottom() - 1,
+                bottom.getWidth(),
+                1);
 }
 } // namespace cabrot::ui
