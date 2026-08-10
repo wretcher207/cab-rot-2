@@ -230,7 +230,7 @@ void ThemeTest::paintHero (juce::Graphics& g, juce::Rectangle<int> area)
 
     g.setFont (theme::Fonts::mono (66.0f, -0.04f));
     g.setColour (theme::inkPrimary);
-    g.drawText ("66.1", area, juce::Justification::centred, false);
+    g.drawText ("--", area, juce::Justification::centred, false);
 
     drawRule (g, { area.getX(), area.getBottom() - 1, area.getWidth(), 1 });
 }

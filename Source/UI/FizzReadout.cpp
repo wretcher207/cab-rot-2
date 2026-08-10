@@ -10,6 +10,19 @@ FizzReadout::FizzReadout()
     setOpaque (false);
 }
 
+void FizzReadout::setValue (std::optional<float> percent)
+{
+    if (! displayValue.has_value() && ! percent.has_value())
+        return;
+
+    if (displayValue.has_value() && percent.has_value()
+        && juce::approximatelyEqual (*displayValue, *percent))
+        return;
+
+    displayValue = percent;
+    repaint();
+}
+
 void FizzReadout::paint (juce::Graphics& g)
 {
     auto area = getLocalBounds();
@@ -28,7 +41,9 @@ void FizzReadout::paint (juce::Graphics& g)
     auto heroFont = theme::Fonts::mono (numPx, -0.04f);
     auto suffixFont = theme::Fonts::mono (juce::jmax (18.0f, numPx * 0.33f));
 
-    const auto numText = juce::String (displayValue, 1);
+    const bool hasValue = displayValue.has_value();
+    const auto numText = hasValue ? juce::String (*displayValue, 1)
+                                  : juce::String ("--");
 
     juce::GlyphArrangement na;
     na.addLineOfText (heroFont, numText, 0.0f, 0.0f);
@@ -36,11 +51,15 @@ void FizzReadout::paint (juce::Graphics& g)
     const float numW = numBounds.getWidth();
     const float numH = numBounds.getHeight();
 
-    juce::GlyphArrangement pa;
-    pa.addLineOfText (suffixFont, "%", 0.0f, 0.0f);
-    const float pctW = pa.getBoundingBox (0, -1, true).getWidth();
+    float pctW = 0.0f;
+    if (hasValue)
+    {
+        juce::GlyphArrangement pa;
+        pa.addLineOfText (suffixFont, "%", 0.0f, 0.0f);
+        pctW = pa.getBoundingBox (0, -1, true).getWidth();
+    }
 
-    const float gapP = 6.0f;
+    const float gapP = hasValue ? 6.0f : 0.0f;
     const float totalW = numW + gapP + pctW;
     const float numX = area.getCentreX() - totalW * 0.5f;
     const float numY = static_cast<float> (area.getY())
@@ -52,12 +71,15 @@ void FizzReadout::paint (juce::Graphics& g)
                 juce::Rectangle<float> (numX, numY, numW + 16.0f, numH + 24.0f),
                 juce::Justification::centredLeft, false);
 
-    g.setFont (suffixFont);
-    g.setColour (theme::inkMeta);
-    g.drawText ("%",
-                juce::Rectangle<float> (numX + numW + gapP, numY + 6.0f,
-                                        pctW + 16.0f, suffixFont.getHeight() + 16.0f),
-                juce::Justification::centredLeft, false);
+    if (hasValue)
+    {
+        g.setFont (suffixFont);
+        g.setColour (theme::inkMeta);
+        g.drawText ("%",
+                    juce::Rectangle<float> (numX + numW + gapP, numY + 6.0f,
+                                            pctW + 16.0f, suffixFont.getHeight() + 16.0f),
+                    juce::Justification::centredLeft, false);
+    }
 
     const auto bottom = getLocalBounds();
     g.setColour (theme::rule);
