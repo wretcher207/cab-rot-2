@@ -33,6 +33,7 @@ FooterBar::FooterBar()
     oversample.setSelectedId (1, juce::dontSendNotification);
     oversample.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (oversample);
+    oversample.setVisible (false);
 }
 
 void FooterBar::setStatusText (juce::String text)
@@ -76,20 +77,6 @@ void FooterBar::paint (juce::Graphics& g)
     g.setFont   (theme::Fonts::monoLabel (10.0f));
     g.drawText  (formattedStatusText(), versionArea,
                  juce::Justification::centredRight, false);
-
-    // Divider between OS combo and status text.
-    g.setColour (theme::rule);
-    g.fillRect (juce::Rectangle<int> (versionArea.getX() - 16,
-                                      inner.getCentreY() - 8, 1, 16));
-    inner.removeFromRight (32);
-
-    // OS combo reserves 68 px; the label sits to its left.
-    inner.removeFromRight (68);
-    inner.removeFromRight (4);
-    auto osLabel = inner.removeFromRight (24);
-    g.setColour (theme::inkMeta);
-    g.setFont   (theme::Fonts::monoLabel (10.0f));
-    g.drawText  ("OS:", osLabel, juce::Justification::centredRight, false);
 }
 
 void FooterBar::resized()
@@ -113,11 +100,6 @@ void FooterBar::resized()
     aButton.setBounds (abX, abY, abW / 2, abH);
     bButton.setBounds (abX + abW / 2, abY, abW / 2, abH);
 
-    // Oversample combo: between the OS: label and the status divider.
-    const int comboW = 68;
-    const int comboH = 22;
-    const int comboY = inner.getCentreY() - comboH / 2;
-    const int comboRight = inner.getRight() - statusTextWidth() - 32;
-    oversample.setBounds (comboRight - comboW, comboY, comboW, comboH);
+    oversample.setBounds ({ });
 }
 } // namespace cabrot::ui
