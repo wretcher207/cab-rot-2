@@ -36,7 +36,7 @@ private:
     void paintReductionCurve (juce::Graphics&, juce::Rectangle<int>);
     void paintLabels  (juce::Graphics&, juce::Rectangle<int>);
 
-    float dbToY (float dB, juce::Rectangle<int> plot) const noexcept;
+    float dbToY (float reductionMagnitudeDb, juce::Rectangle<int> plot) const noexcept;
 
     // Placeholder input spectrum, 16 columns. Phase 6 replaces with FFT
     // bin data via lock-free FIFO.
@@ -48,9 +48,9 @@ private:
         0.05f, 0.05f
     };
 
-    // Placeholder gain-reduction deltas in dB across the plot. Phase 6
-    // replaces with the four live band envelopes interpolated per column
-    // (getBandReductionDb()).
+    // Placeholder gain-reduction magnitudes in dB (positive down from 0).
+    // Phase 6 replaces with the four live band envelopes interpolated per
+    // column (getBandReductionDb()).
     static constexpr int kNumCurvePoints = 24;
     float reductionDb[kNumCurvePoints] = {
         0.0f,  0.2f,  0.6f,  1.2f,  2.0f,  3.0f,

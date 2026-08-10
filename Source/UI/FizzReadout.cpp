@@ -22,29 +22,41 @@ void FizzReadout::paint (juce::Graphics& g)
     area.removeFromTop (12);
 
     // The number is a numeric readout, so it renders in JetBrains Mono even
-    // at display size. No glow, no halo: just primary ink on the ground.
-    const float numPx = juce::jlimit (44.0f, 96.0f, static_cast<float> (area.getHeight()) * 0.62f);
+    // at display size. No glow, no halo: primary ink on the ground, and the
+    // percent sign sits on the same baseline in metadata grey.
+    const float numPx = juce::jlimit (44.0f, 84.0f, static_cast<float> (area.getHeight()) * 0.55f);
     auto heroFont = theme::Fonts::mono (numPx, -0.04f);
-    g.setFont (heroFont);
+    auto suffixFont = theme::Fonts::mono (juce::jmax (18.0f, numPx * 0.33f));
 
     const auto numText = juce::String (displayValue, 1);
+
+    juce::GlyphArrangement na;
+    na.addLineOfText (heroFont, numText, 0.0f, 0.0f);
+    const auto numBounds = na.getBoundingBox (0, -1, true);
+    const float numW = numBounds.getWidth();
+    const float numH = numBounds.getHeight();
+
+    juce::GlyphArrangement pa;
+    pa.addLineOfText (suffixFont, "%", 0.0f, 0.0f);
+    const float pctW = pa.getBoundingBox (0, -1, true).getWidth();
+
+    const float gapP = 6.0f;
+    const float totalW = numW + gapP + pctW;
+    const float numX = area.getCentreX() - totalW * 0.5f;
+    const float numY = static_cast<float> (area.getY())
+                     + (area.getHeight() - numH) * 0.5f - 6.0f;
+
+    g.setFont (heroFont);
     g.setColour (theme::inkPrimary);
-    g.drawText (numText, area, juce::Justification::centred, false);
+    g.drawText (numText,
+                juce::Rectangle<float> (numX, numY, numW + 16.0f, numH + 24.0f),
+                juce::Justification::centredLeft, false);
 
-    // Percent sign in metadata grey, smaller, hugging the number.
-    auto suffixFont = theme::Fonts::mono (juce::jmax (20.0f, numPx * 0.36f));
-    juce::GlyphArrangement ga;
-    ga.addLineOfText (heroFont, numText, 0.0f, 0.0f);
-    const float numW = ga.getBoundingBox (0, -1, true).getWidth();
-
-    const float suffixX = area.getCentreX() + numW * 0.5f + 4.0f;
-    g.setFont   (suffixFont);
+    g.setFont (suffixFont);
     g.setColour (theme::inkMeta);
     g.drawText ("%",
-                juce::Rectangle<float> (suffixX,
-                                        area.getY() + numPx * 0.16f,
-                                        suffixFont.getHeight() * 1.0f,
-                                        suffixFont.getHeight()),
+                juce::Rectangle<float> (numX + numW + gapP, numY + 6.0f,
+                                        pctW + 16.0f, suffixFont.getHeight() + 16.0f),
                 juce::Justification::centredLeft, false);
 
     const auto bottom = getLocalBounds();

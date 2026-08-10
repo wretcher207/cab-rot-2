@@ -65,9 +65,11 @@ void WaspMeter::paintFrame (juce::Graphics& g, juce::Rectangle<int> area)
     paintReductionCurve (g, plot);
 }
 
-float WaspMeter::dbToY (float dB, juce::Rectangle<int> plot) const noexcept
+float WaspMeter::dbToY (float reductionMagnitudeDb,
+                        juce::Rectangle<int> plot) const noexcept
 {
-    const float t = juce::jlimit (0.0f, 1.0f, -dB / theme::kReductionScaleMaxDb);
+    const float t = juce::jlimit (0.0f, 1.0f,
+                                  reductionMagnitudeDb / theme::kReductionScaleMaxDb);
     return plot.getY() + t * static_cast<float> (plot.getHeight());
 }
 
@@ -95,7 +97,15 @@ void WaspMeter::paintDbScale (juce::Graphics& g, juce::Rectangle<int> area)
         // Guide line across the full meter width, kept as dim as possible.
         g.setColour (theme::rule.withAlpha (0.55f));
         g.drawLine (static_cast<float> (area.getRight() + 4), y,
-                    static_cast<float> (getLocalBounds().getRight()) , y, 1.0f);
+                    static_cast<float> (getLocalBounds().getRight()), y, 1.0f);
+
+        // Damaged territory: mark the 12 dB guide distinctly, but quietly.
+        if (ticks[i] == "-12")
+        {
+            g.setColour (theme::rule);
+            g.drawLine (static_cast<float> (area.getRight() + 4), y,
+                        static_cast<float> (getLocalBounds().getRight()), y, 1.0f);
+        }
     }
 }
 
@@ -127,7 +137,7 @@ void WaspMeter::paintReference (juce::Graphics& g, juce::Rectangle<int> plot)
                   static_cast<float> (plot.getBottom()));
     shape.closeSubPath();
 
-    g.setColour (theme::rule.withAlpha (0.55f));
+    g.setColour (theme::rule);
     g.fillPath (shape);
 }
 
@@ -158,7 +168,7 @@ void WaspMeter::paintReductionCurve (juce::Graphics& g, juce::Rectangle<int> plo
     g.strokePath (curve, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved));
 
     // Rows below thresholdY (larger y) are past the damage threshold.
-    const float thresholdY = dbToY (-theme::kReductionDamageThresholdDb, plot);
+    const float thresholdY = dbToY (theme::kReductionDamageThresholdDb, plot);
     {
         juce::Graphics::ScopedSaveState saved (g);
         g.reduceClipRegion (plot.getX(), juce::roundToInt (thresholdY),
