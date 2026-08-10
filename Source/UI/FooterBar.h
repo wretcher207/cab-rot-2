@@ -21,6 +21,7 @@ public:
     void resized() override;
 
     void setStatusText (juce::String text);
+    void setABAvailable (bool available);
 
     juce::TextButton& getButtonA()      noexcept { return aButton; }
     juce::TextButton& getButtonB()      noexcept { return bButton; }

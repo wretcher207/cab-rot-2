@@ -261,13 +261,8 @@ void ThemeTest::paintFooter (juce::Graphics& g, juce::Rectangle<int> area)
 
     auto inner = area.reduced (24, 0);
 
-    const juce::String status { "V0.1.0 / PROCESSING" };
     g.setFont (theme::Fonts::monoLabel (10.0f));
     g.setColour (theme::inkMeta);
-    g.drawText (status, inner, juce::Justification::centredRight, false);
-
-    auto left = inner.removeFromLeft (240);
-    g.setColour (theme::inkMeta);
-    g.drawText ("IN", left.removeFromLeft (28), juce::Justification::centredLeft, false);
+    g.drawText ("V0.1.0", inner, juce::Justification::centredRight, false);
 }
 } // namespace cabrot::ui

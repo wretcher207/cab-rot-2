@@ -21,6 +21,9 @@ public:
     void paint   (juce::Graphics&) override;
     void resized() override;
 
+    void setEngineLive (bool live)          { livePill.setLive (live); }
+    void setDeltaAvailable (bool available) { ghost.setVisible (available); }
+
     GhostToggle& getDeltaToggle() noexcept { return ghost; }
 
 private:

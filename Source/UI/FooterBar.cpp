@@ -25,6 +25,7 @@ FooterBar::FooterBar()
     bButton.setConnectedEdges (juce::Button::ConnectedOnLeft);
     addAndMakeVisible (aButton);
     addAndMakeVisible (bButton);
+    setABAvailable (false);
 
     // Locked decision: Off / 2x / 4x. Default Off.
     oversample.addItem ("OFF", 1);
@@ -34,6 +35,12 @@ FooterBar::FooterBar()
     oversample.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (oversample);
     oversample.setVisible (false);
+}
+
+void FooterBar::setABAvailable (bool available)
+{
+    aButton.setVisible (available);
+    bButton.setVisible (available);
 }
 
 void FooterBar::setStatusText (juce::String text)

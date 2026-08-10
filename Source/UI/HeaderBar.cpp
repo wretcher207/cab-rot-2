@@ -10,6 +10,7 @@ HeaderBar::HeaderBar()
     addAndMakeVisible (dpdMark);
     addAndMakeVisible (livePill);
     addAndMakeVisible (ghost);
+    ghost.setVisible (false);
 }
 
 void HeaderBar::paint (juce::Graphics& g)

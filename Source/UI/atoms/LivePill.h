@@ -4,26 +4,20 @@
 
 namespace cabrot::ui
 {
-// Header live state mark: a small square in the live colour, quietly
-// breathing on a three second cycle, with the LIVE label in the mono
-// metadata style. One of exactly two places state colour exists in the
-// interface (the other is the meter bar fill). Animation runs at 30 Hz
-// when visible and suspends when hidden.
+// Header engine-state mark. It is disabled until the processor reports
+// recent input, and uses the live token only while that report is true.
 
-class LivePill final : public juce::Component, private juce::Timer
+class LivePill final : public juce::Component
 {
 public:
     LivePill();
-    ~LivePill() override; // stops the timer before any subclass / vtable teardown
+    ~LivePill() override = default;
 
+    void setLive (bool shouldBeLive);
     void paint (juce::Graphics&) override;
 
-    void visibilityChanged() override;
-
 private:
-    void timerCallback() override;
-
-    float pulsePhase = 0.0f;
+    bool live = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LivePill)
 };
