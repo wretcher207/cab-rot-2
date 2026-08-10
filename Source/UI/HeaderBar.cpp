@@ -58,7 +58,7 @@ void HeaderBar::paint (juce::Graphics& g)
     g.drawText  ("CPU", cpuLabelArea, juce::Justification::centredRight, false);
 
     g.setFont   (theme::Fonts::mono (12.0f, 0.10f));
-    g.setColour (theme::inkMeta);
+    g.setColour (theme::inkBody);
     g.drawText  (cpuValue, cpuValueArea, juce::Justification::centredLeft, false);
 }
 

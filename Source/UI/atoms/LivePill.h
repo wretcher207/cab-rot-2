@@ -4,9 +4,11 @@
 
 namespace cabrot::ui
 {
-// Header pill: rounded surface-container background, a toxic dot that
-// pulses at ~0.8 Hz, "LIVE" label in ui-chrome typography. Pulse animation
-// runs at 60 Hz when visible; suspends when hidden so we don't burn CPU.
+// Header live state mark: a small square in the live colour, quietly
+// breathing on a three second cycle, with the LIVE label in the mono
+// metadata style. One of exactly two places state colour exists in the
+// interface (the other is the meter bar fill). Animation runs at 30 Hz
+// when visible and suspends when hidden.
 
 class LivePill final : public juce::Component, private juce::Timer
 {

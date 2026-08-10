@@ -5,10 +5,10 @@
 namespace cabrot::ui
 {
 // Mode button atom for the AMP PROFILE grid. Behaves like a juce::TextButton
-// (so Phase 3 can attach it via ButtonAttachment for radio-group selection),
-// styled by SpectreLookAndFeel's drawButtonBackground override. Active state
-// fills toxic with on-primary-container text; inactive renders surface-
-// container-high with muted text.
+// (so a ButtonAttachment handles radio-group selection), styled by
+// SpectreLookAndFeel's drawButtonBackground override: square hairline, no
+// fill. Selected is primary ink, unselected is rule border with metadata
+// text.
 
 class ModeButton final : public juce::TextButton
 {

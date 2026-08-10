@@ -4,9 +4,10 @@
 
 namespace cabrot::ui
 {
-// Footer IN/OUT meter pill: a uppercase label on the left, then a 6 px tall
-// rounded fill bar showing 0..1 level. Phase 2 just animates a static value;
-// Phase 6 wires it to peak/RMS analysis off the audio thread.
+// Footer IN/OUT meter: an uppercase mono label, then a square bar in a
+// quiet track with a 1 px hairline frame; the fill is the live state
+// colour. Phase 2 just animates a static value; Phase 6 wires it to
+// peak/RMS analysis off the audio thread.
 
 class MeterPill final : public juce::Component
 {

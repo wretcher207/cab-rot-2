@@ -162,18 +162,25 @@ void WaspMeter::paintReference (juce::Graphics& g, juce::Rectangle<int> plot)
     g.fillPath (shape);
 
     // The shape's silhouette carries the full token; the mass stays quiet.
+    // Quadratic midpoints smooth the column data so the edge sits next to
+    // the curve without angular facets.
     juce::Path edge;
-    for (int i = 0; i < kNumColumns; ++i)
+    auto refPoint = [&] (int i)
     {
         const float x = plot.getX() + w * static_cast<float> (i) / static_cast<float> (kNumColumns - 1);
         const float top = plot.getBottom() - reference[i] * plot.getHeight();
-        if (i == 0)
-            edge.startNewSubPath (x, top);
-        else
-            edge.lineTo (x, top);
+        return juce::Point<float> (x, top);
+    };
+    edge.startNewSubPath (refPoint (0));
+    for (int i = 1; i < kNumColumns; ++i)
+    {
+        const auto a = refPoint (i - 1);
+        const auto b = refPoint (i);
+        edge.quadraticTo (a, (a + b) * 0.5f);
     }
+    edge.lineTo (refPoint (kNumColumns - 1));
     g.setColour (theme::rule);
-    g.strokePath (edge, juce::PathStrokeType (1.0f, juce::PathStrokeType::mitered));
+    g.strokePath (edge, juce::PathStrokeType (1.0f, juce::PathStrokeType::curved));
 }
 
 void WaspMeter::paintReductionCurve (juce::Graphics& g, juce::Rectangle<int> plot)

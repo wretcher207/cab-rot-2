@@ -3,7 +3,7 @@
 **Owner**: David Russell / Dead Pixel Harmonix
 **Plan date**: 2026-05-05
 **Source spec**: `second-mind/wiki/sources/2026-05-05-cab-rot-plugin-spec.md`
-**UI reference**: `cab-rot/design/stitch-reference.html` (Stitch export, 2026-05-05)
+**UI reference**: `cab-rot/design/CANONICAL-UI.md` (rewritten for the DPD brand facelift, 2026-08-10). The original Stitch export lived in `design/stitch-reference.html`; that direction is cancelled and the file is deleted (git history keeps it).
 **Build target**: VST3 + AU, JUCE 8.x, Windows 11 first / macOS later
 
 ---

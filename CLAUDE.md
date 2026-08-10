@@ -31,7 +31,7 @@ See HANDOFF.md for current phase, what's shipped, and what's next. Don't duplica
 black with toxic neon green and scanlines, was the aesthetic through Phase 4 and
 is now dead. So is the Sunder amber rebrand in `design/sunder/`, and the copper
 and knurled-hardware direction in `visual-upgrade-1.md`. All three are kept for
-history. If you find `#40FF2F`, `#0FE605` or `#54FF00` in a design here, it is
+history. If you find the old Spectre neon greens in a design here, it is
 wrong. `design/CANONICAL-UI.md` is authoritative for layout geometry only; its
 colour, radius and typography sections are superseded.
 

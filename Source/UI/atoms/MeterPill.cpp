@@ -42,5 +42,7 @@ void MeterPill::paint (juce::Graphics& g)
     g.fillRect (bar);
     g.setColour (theme::stateLive.withAlpha (0.85f));
     g.fillRect (bar.withWidth (bar.getWidth() * level));
+    g.setColour (theme::rule);
+    g.drawRect (bar, 1.0f);
 }
 } // namespace cabrot::ui

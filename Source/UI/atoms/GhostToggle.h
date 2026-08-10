@@ -4,10 +4,11 @@
 
 namespace cabrot::ui
 {
-// Locked decision #3: Delta Listen lives in the header as a ghost icon,
-// click toggles persistently, glows danger red when active. The glyph
-// is rendered as a juce::Path - rounded "head" with three "tail" bumps
-// at the bottom. Two open eye holes.
+// Delta Listen lives in the header as a ghost icon. The ghost is
+// discovered, never announced: inkDisabled at rest, inkBody on hover,
+// inkPrimary while listening. It never emits light in any state. The
+// is rendered as a juce::Path with a rounded head and three tail bumps
+// along the bottom. Two open eye holes.
 //
 // Phase 2: visual-only toggle (click flips the state, no audio impact).
 // Phase 7: wires the audio bypass.

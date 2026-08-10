@@ -1,10 +1,15 @@
 # Cab Rot — Canonical UI
 
-**Status**: locked 2026-05-05. This document overrides anything in the Stitch
-export or the original spec where they conflict. Phase 1 deliverable.
+**Status**: rewritten 2026-08-10 for the Dead Pixel Design facelift. Layout
+geometry, region sizes, spacing and component dimensions below remain
+authoritative. All colour, radius and typography rules have been replaced to
+match the DPD brand kit
+(`dead-pixel-design-v4/brand-kit/AI-BRAND-BRIEF.md`), which is the binding
+document for anything visual.
 
-The Stitch export at `design/stitch-reference.html` is a visual reference. The
-authority chain is: this file > Stitch HTML > original product spec.
+The Stitch export was the visual reference the old toxic design was ported
+from. It is deleted; git history keeps it. Nothing in this document
+inherits from it anymore.
 
 ---
 
@@ -12,139 +17,104 @@ authority chain is: this file > Stitch HTML > original product spec.
 
 | Property | Value |
 |---|---|
-| Default size | 1200 × 780 |
-| Minimum     | 1000 × 650 |
-| Maximum     | 1600 × 1040 |
-| Aspect lock | continuous, ratio = 1200 / 780 ≈ 1.5385 |
-| Border radius (outer) | 12 px (rounded-xl), but JUCE plugin windows render rectangular inside the host frame, so this is reserved for the Standalone window only |
+| Default size | 1200 x 780 |
+| Minimum     | 1000 x 650 |
+| Maximum     | 1600 x 1040 |
+| Aspect lock | continuous, ratio = 1200 / 780 (1.5385) |
+| Border radius | 0 everywhere, no exceptions |
 
-Locked decision #6 (HANDOFF.md). Editor expresses the ratio via a single
-constant `kAspectRatio` so default-size and constrainer cannot drift apart.
+The editor expresses the ratio via a single constant `kAspectRatio` so
+default size and constrainer cannot drift apart.
 
 ---
 
 ## 2. Vertical layout (regions)
 
-At 1200 × 780 the editor is split horizontally into four bands:
+At 1200 x 780 the editor is split horizontally into four bands:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ HeaderBar             64 px (h-16)                      │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│ MainSplit             476 px (= 780 - 64 - 192 - 48)    │
-│   Wasp Meter (left, flex 1)        |  RightPanel (320 px)│
-│                                                         │
-├─────────────────────────────────────────────────────────┤
-│ KnobRow              192 px (h-48)                      │
-├─────────────────────────────────────────────────────────┤
-│ FooterBar             48 px (h-12)                      │
-└─────────────────────────────────────────────────────────┘
++----------------------------------------------------------+
+| HeaderBar             64 px                              |
++----------------------------------------------------------+
+|                                                          |
+| MainSplit             476 px (= 780 - 64 - 192 - 48)     |
+|   Wasp Meter (left, flex 1)        |  RightPanel (320 px)|
+|                                                          |
++----------------------------------------------------------+
+| KnobRow              192 px                              |
++----------------------------------------------------------+
+| FooterBar             48 px                              |
++----------------------------------------------------------+
 ```
 
-`edge-margin` 20 px (Tailwind `1.25rem`) on header and footer side padding.
-`p-6` (24 px) on the main split. `px-8 py-6` (32/24) on the knob row.
+Header and footer carry 24 px side padding. The main split carries 24 px
+padding. The knob row carries 32 px horizontal and 16 px vertical padding.
+The 4 px spacing atom governs every other gap and inset.
 
-When the window resizes, every band keeps its absolute pixel height fixed
-except MainSplit, which absorbs the slack.
+When the window resizes, every band keeps its pixel height derived from the
+default-size proportions clamped to a floor; MainSplit absorbs the slack.
 
 ---
 
 ## 3. Typography
 
-Typeface ladder (bundled into `BinaryData` via `juce_add_binary_data`):
+Three faces, bundled into `BinaryData` via `juce_add_binary_data`. Served
+through `Source/Theme/Fonts.cpp`. Nothing constructs a `juce::Font` from a
+system family name.
 
-| Slot | Family | Weight | Size | Tracking | Use |
-|---|---|---|---|---|---|
-| display-title | Space Grotesk | 700 (Bold) - locked. Stitch calls 900 black; we ship 700 because the Black file isn't in workspace and the visual difference is small at 24 px. Phase 1 polish if David wants Black. | 24 px | -0.02 em | "CAB ROT" header h1, uppercase |
-| hero-num | Space Grotesk | 700 | 80 px | -0.05 em | FIZZ % big readout, "66.1" |
-| body | Space Grotesk | 400 (Regular) | 16 px | normal | reserved for non-existent body copy; spec mostly omits paragraphs |
-| ui-chrome | JetBrains Mono | 400 (Regular) - locked. Stitch calls 500 Medium; the Medium TTF is not in the workspace font cache and the visual difference is small at 11 px. Phase 1.5 polish if David wants the heavier weight downloaded. | 11 px | 0.30 em | small-caps labels (`FIZZ HUNT`, `CPU`, `LIVE`, footer text) |
-| mono-data | JetBrains Mono | 400 (Regular) | 14 px | 0.10 em | numeric values next to knobs (`62`), CPU value (`4.2%`), mode-button labels (`5150`) |
+| Slot | Family | Weight | Tracking | Use |
+|---|---|---|---|---|
+| wordmark | DPD Display | 400 only, never synthetically bolded | 0.30 em | "CAB ROT" header wordmark, uppercase |
+| display | DPD Display | 400 | 0.06 em to 0.10 em | Display headings only. Uppercase. |
+| body | Inter | 400, 500 for emphasis | 0 | Body and controls, sentence case (currently tooltips and long-form copy) |
+| mono-label | JetBrains Mono | 400 | 0.18 em | Short uppercase labels: headers, knob names, button labels, CPU, LIVE, footer status |
+| mono | JetBrains Mono | 400 | 0 to 0.10 em | Every numeric readout: fizz hero number, knob values, CPU value, dB scale, frequency labels |
 
-Font fallback if a typeface fails to load: JUCE's default sans, but a missing
-Space Grotesk is a build-time error - the BinaryData symbols must resolve.
+Note the numeric-readout rule: even the large fizz figure is JetBrains
+Mono. DPD Display is for words, not digits.
 
 ---
 
-## 4. Color tokens (canonical list)
+## 4. Colour tokens (complete list)
 
-The Stitch tailwind config mixes OKLCH and direct hex. Both are valid. The
-build-time script `tools/oklch-to-srgb.py` parses both forms and emits
-`Source/Theme/Palette.h` with `constexpr juce::Colour` constants. The Colour
-constants are the only sanctioned color source in component code.
-
-**OKLCH-derived** (build-time conversion to sRGB hex):
-
-| Token | OKLCH | Use |
-|---|---|---|
-| toxic        | oklch(0.88 0.28 142) | primary action color, knob indicators, glow base |
-| toxic-glow   | oklch(0.92 0.30 140) | brighter toxic for glow halos and text-glow |
-| warning      | oklch(0.82 0.22 75)  | reserved for future warning states |
-| danger       | oklch(0.65 0.28 25)  | Delta Listen ghost when active, error states |
-| background   | oklch(0.12 0.015 160) | window outer background |
-| surface      | oklch(0.16 0.02 160) | cards, panels |
-| surface-elevated | oklch(0.20 0.025 160) | FIZZ % card |
-| border       | oklch(0.28 0.04 150 / 60%) | subtle borders with alpha |
-| foreground   | oklch(0.96 0.02 145) | bright text |
-| muted-foreground | oklch(0.65 0.04 150) | secondary text, inactive labels |
-
-**Hex-direct** (45+ tokens, see Stitch config for the full set):
-
-The most-used hex tokens, with their semantic role:
+Hand-maintained in `Source/Theme/Palette.h`. No hex literal appears
+anywhere else in `Source/`.
 
 | Token | Hex | Use |
 |---|---|---|
-| primary-container        | #40FF2F | mode-button active fill, "live" indicator dot |
-| primary-fixed            | #77FF60 | brighter green accent |
-| primary-fixed-dim        | #0FE605 | dim green for footer chrome |
-| surface-tint             | #0FE605 | identical to primary-fixed-dim |
-| surface-container-lowest | #071005 | main panel background (the very dark green-black) |
-| surface-container-low    | #141E11 | header strip background |
-| surface-container        | #182215 | secondary card backgrounds, A/B toggle bg |
-| surface-container-high   | #232D1F | inactive mode-button bg, analyzer header |
-| surface-container-highest| #2D3829 | spectral bars at rest, knob inner cap |
-| surface-bright           | #323C2D | knob outer container |
-| surface-variant          | #2D3829 | duplicate of -highest in spec, kept for completeness |
-| surface-dim              | #0C160A | dimmer than background, used in vignettes |
-| outline                  | #85967D | mid-grey-green, primary border color |
-| outline-variant          | #3C4B36 | dimmer border color |
-| on-background            | #DAE6D1 | text on background (bright off-white green) |
-| on-surface               | #DAE6D1 | identical to on-background |
-| on-surface-variant       | #BACCB1 | secondary text |
-| on-primary-container     | #037200 | dark green text on toxic-fill buttons |
+| canvas      | `#060606` | window ground, knob row, footer |
+| surface1    | `#0B0B0B` | spectral analysis frame ground |
+| surface2    | `#101010` | popup menus, tooltip ground |
+| surface3    | `#151514` | quiet fills: meter bar tracks |
+| inkPrimary  | `#F2F2EF` | wordmark, reduction curve, value arcs, selected outlines, active ghost |
+| inkBody     | `#B4B4B0` | knob values, zone names, combo text, hovered unselected |
+| inkMeta     | `#8A8A85` | labels, scales, unselected text, tick marks |
+| inkDisabled | `#4A4A47` | inactive ghost, disabled controls |
+| rule        | `#2E2E2C` | every 1 px hairline, every unfilled track and border |
+| stateLive   | `#7FA57A` | live state only: header live dot, IN/OUT meter fill |
+| stateError  | `#C4574C` | reduction curve segments past 12 dB in any band |
 
-The 25 remaining tokens (tertiary-* family, error-*, secondary-*) are kept
-in `Palette.h` for completeness but are not referenced in v1. Phase 8's
-Crypt overlay may use them.
+The damage threshold is `theme::kReductionDamageThresholdDb = 12.0f` in
+`Palette.h`. Green and red are not accents; nothing else in the interface
+is coloured. If hierarchy seems to need colour, it actually needs type or
+spacing.
 
 ---
 
 ## 5. Background utility patterns
 
-| Pattern | Definition |
-|---|---|
-| scanline | linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.25) 51%) repeated every 4 px vertically. Applied at 20% opacity globally over the main panel and 10% over the knob row. |
-| grid-pattern | crossed 1 px lines at 20 px grid, rgba(255,255,255,0.05). Applied at 30% opacity over the WaspMeter background. |
-
-Both are paint-time effects, not images. `SpectreLookAndFeel` exposes
-`drawScanlines (g, area, opacity)` and `drawGridPattern (g, area, opacity)`
-helpers so component code stays clean.
+Scanlines are the only texture. They are permitted inside the spectral
+display frame only, rendered by `SpectreLookAndFeel::drawScanlines` at 5
+percent opacity, 3 px spacing. Nothing else in the window has texture,
+gradients, vignettes, shadows, or emissive effects.
 
 ---
 
 ## 6. Border radii
 
-| Slot | Value |
-|---|---|
-| sm   | 4 px (DEFAULT) |
-| md   | 6 px |
-| lg   | 8 px |
-| xl   | 12 px |
-| full | circular |
-
-Most cards use `xl` (12 px). Mode buttons and the A/B toggle use `lg` (8 px).
-Knob outer containers use `full`. Meter pill uses `full`.
+Zero. Everywhere. Corners are square on the wordmark mark, the spectral
+frame, the mode buttons, the A/B toggle, the oversampling combo, the meter
+bars, and the knob arcs render as stroked paths with no filled bodies.
 
 ---
 
@@ -152,164 +122,107 @@ Knob outer containers use `full`. Meter pill uses `full`.
 
 ### 7.1 HeaderBar (64 px tall)
 
-Left cluster, gap-4 (16 px), centered vertically:
-- `h1#CAB ROT` — Space Grotesk Bold, 24 px, uppercase, tracking-tighter, color = toxic
-- 1 px vertical divider, 16 px tall, `outline-variant`
-- DPD mark, 16 × 16 px, grayscale at 70% opacity
-- `by Dead Pixel Design` — JetBrains Mono Medium 11 px tracking-0.3em, color = muted-foreground
-
-Right cluster, gap-6 (24 px):
-- CPU label + value: ui-chrome `CPU` + mono-data toxic value
-- LIVE pill: rounded-full, surface-container bg, outline-variant border, 8 px toxic dot with `0 0 8px toxic` glow + 1.5 s pulse, ui-chrome label `LIVE` toxic
-- Delta Listen ghost icon (locked decision #3, replaces Stitch's `sensors` icon). Click toggles persistently; icon glows `danger` red when active.
+- Ground: canvas. Bottom edge: 1 px hairline in `rule`.
+- Left cluster: "CAB ROT" wordmark (DPD Display, inkPrimary, 0.30 em),
+  1 px vertical divider (rule, 16 px), DPD mark 16 x 16 in inkBody/inkPrimary,
+  "DEAD PIXEL HARMONIX" in mono-label, inkMeta.
+- Right cluster: "CPU" mono-label inkMeta + value in mono, inkBody; live
+  indicator (small square in stateLive, breathing between 70 and 100
+  percent on a 3 second cycle, no ornament; "LIVE" label in inkMeta);
+  Delta Listen ghost icon.
 
 ### 7.2 WaspMeter (left of MainSplit)
 
-- xl rounded card, surface-container/50 bg, outline-variant border
-- grid-pattern overlay at 30% opacity
-- 1 px gradient sweep across the top edge (transparent → toxic 50% → transparent)
-- Header strip: 24 px py + 16 px px, `search_activity` icon (toxic) + `SPECTRAL ANALYSIS` label (muted-foreground), right-aligned `WASP METER` label (toxic)
-- Spectral display: 14 to 16 vertical bars, 2 px gap, anchored to the bottom. Bars use:
-  - `surface-container-highest` for at-rest (under detection threshold)
-  - `toxic/40` to `toxic` for active bands, increasing alpha with detection intensity
-  - Active bands also get `0 0 10px toxic` glow
-- Peak-line overlay: SVG-style path drawn via `juce::Path`, white-toxic stroke, drop-shadow 0 0 4px toxic
-- Peak-band white tip: 1 px white line on top of the strongest bar
-- Frequency label rail at bottom (16 px tall): two rows, ui-chrome 10 px:
-  - Row 1 (numeric): `1k 2k 5k 8k 12k 20k`
-  - Row 2 (named, locked decision #4): `BITE PLASTIC WASP SAND AIR ICE` between the 2 kHz and 12 kHz markers
+The single focal event of the editor.
 
-### 7.3 RightPanel (320 px wide, gap-6 = 24 px between cards)
+- One 1 px `rule` frame on a `surface1` ground. Nothing else frames it.
+- Scanlines inside the frame only, 5 percent opacity.
+- dB scale down the left inside the frame (0, -6, -12, -18, -24 dB),
+  mono 9.5 px, inkMeta. Horizontal guides at 40 percent `rule`; the -12 dB
+  guide draws at full `rule` because it marks the damage threshold.
+- Input spectrum behind everything: one smooth quiet shape, filled at 45
+  percent `rule` with a 1 px full-`rule` silhouette edge.
+- The gain-reduction curve is the primary line: inkPrimary, 1.5 px,
+  no glow. Segments past the 12 dB threshold render in stateError via a
+  clipped second pass.
+- Tick marks (1 x 5 px, inkMeta at 60 percent) inside the frame bottom at
+  each labelled frequency.
+- Below the frame: numeric frequency row (mono 9.5, inkMeta) and named
+  band row (mono-label, inkBody): BITE, PLASTIC, WASP, SAND, AIR, ICE.
 
-#### FIZZ % card (192 px tall, h-48)
-- xl rounded, surface-elevated bg, outline-variant border
-- `bg-toxic/5 blur-2xl` halo behind the number (paint as soft radial)
-- 1 px top-edge gradient sweep, identical to WaspMeter
-- ui-chrome label `FIZZ AMOUNT` muted, 8 px above the number
-- Hero number: Space Grotesk Bold 80 px, color = toxic, with text-glow (0 0 10px + 0 0 20px toxic)
-- `%` suffix at 30 px (text-3xl), same color, no glow
-- Click cycles through `FIZZ %` → `Reduction dB` → `Peak Hz`. Phase 6 wires this; Phase 1 just renders FIZZ % static at 66.1.
+Phase 6 wires this to `getBandReductionDb()`. Until then the content is
+deterministic placeholder data chosen under the damage threshold.
 
-#### AMP PROFILE card (flex-1, fills remaining height)
-- xl rounded, surface-container bg, outline-variant border, p-5 (20 px)
-- Header: `developer_board` icon (muted, 14 px) + ui-chrome `AMP PROFILE` label
-- 2 × 3 button grid, gap-3 (12 px), 6 mode buttons:
-  - 5150, RECTO, HM-2, DJENT, BLACKENED, SLUDGE
-- Active button: bg toxic, text on-primary-container (#037200), border toxic, `0 0 15px toxic/30` shadow, font-bold mono-data 14 px
-- Inactive button: bg surface-container-high, text muted-foreground, border outline-variant, `lg` rounded, py-3 (12 px). Hover: border-toxic, text-toxic.
+### 7.3 RightPanel (320 px wide)
+
+The panel carries no card background or border. Structure comes from
+hairlines and spacing.
+
+FIZZ section (192 px tall):
+- mono-label header "FIZZ AMOUNT", inkMeta.
+- Hero number in JetBrains Mono, capped at 72 px, inkPrimary, no glow.
+- Percent sign at about a third of the number height, inkMeta, on the
+  number's baseline.
+- A 1 px `rule` hairline separates the section from AMP PROFILE.
+
+AMP PROFILE section (fills remaining height):
+- mono-label header, inkMeta.
+- 2 x 3 grid of square buttons (8 px gaps), 1 px hairline, no fill in
+  either state: selected is inkPrimary border + inkPrimary text,
+  unselected is rule border + inkMeta text, hover lifts unselected ink to
+  inkBody.
+- Modes: 5150, RECTO, HM-2, DJENT, BLACKENED, SLUDGE.
 
 ### 7.4 KnobRow (192 px tall, full width)
 
-- Top border: 1 px outline-variant
-- Background: surface-container/60 with backdrop-blur
-- scanline overlay at 10% opacity
-- 6 knobs evenly spaced (locked decision #1), max-w-4xl (1024 px) centered
-- Each knob is a vertical stack, gap-4 (16 px):
-  1. ui-chrome label, muted (or toxic if value > 0)
-  2. Knob (64 × 64 px, see 7.6)
-  3. mono-data value, toxic if value > 0 else muted-foreground
-
-Order, from left: FIZZ HUNT, EDGE PRESERVE, CAB SMOOTH, DIGITAL SAND,
-AIR ROT, REAP MIX.
+- Top edge: 1 px hairline in `rule`. Ground: canvas. No scanlines.
+- Six knobs evenly spaced, order: FIZZ HUNT, EDGE PRESERVE, CAB SMOOTH,
+  DIGITAL SAND, AIR ROT, REAP MIX.
+- Each knob: mono-label name above (inkMeta), dial, mono value below
+  (inkBody).
+- Dial, drawn by `SpectreLookAndFeel::drawRotarySlider`: 1 px track arc
+  in `rule`, 1.5 px value arc in inkPrimary, 1 px indicator line in
+  inkPrimary (inkDisabled when the control is off). No filled body, no
+  gradient, no bevel, no ring glow. Dials size between 56 and 104 px.
 
 ### 7.5 FooterBar (48 px tall)
 
-Three regions, all vertically centered:
+- Top edge: 1 px hairline in `rule`. Ground: canvas.
+- Left: IN/OUT meters. Mono-label in inkMeta, then a square bar: surface3
+  track with 1 px `rule` frame, fill in stateLive at 85 percent.
+- Center: A/B toggle, two square hairline buttons sharing a border.
+  Selected side: inkPrimary border + text.
+- Right: "OS:" mono-label + oversampling combo (square hairline, mono
+  text, LOCKED: Off / 2x / 4x, default Off), 1 px divider, status text
+  "V0.1.0 / PROCESSING" in mono-label inkMeta. The message reports the
+  actual processing state; costume strings are banned.
 
-Left:
-- Crypt button: skull icon + ui-chrome `THE CRYPT` + expand_more chevron, color muted-foreground, hover toxic-glow
-- 1 px vertical divider
-- IN/OUT meters: stacked horizontal, gap-2 (8 px)
-  - Each: ui-chrome 10 px label (`IN`/`OUT`) + 64 × 6 px pill (surface-container-highest bg, toxic fill at percentage). Peak hold for 1.5 s as a 1 px brighter sliver inside the fill.
+The Crypt is deleted from the front panel. The button opened nothing;
+Phase 8's advanced overlay will get a real entry point when it ships.
 
-Center:
-- A/B toggle: surface-container bg, outline-variant border, p-1 (4 px), rounded-md
-  - Active side: bg toxic, text on-primary-container, font-bold, mono-data text-xs (12 px)
-  - Inactive: text muted-foreground, hover on-surface
+### 7.6 GhostToggle atom (Delta Listen)
 
-Right:
-- Oversample dropdown: ui-chrome `OS:` label + native combo. Locked decision #2: values are `Off`, `2x`, `4x` only. Default `Off`. Active value rendered in toxic; closed/idle in muted-foreground.
-- 1 px vertical divider
-- Version chrome: ui-chrome `CAB ROT vX.YZ // SCANNING FOR HARSHNESS`, color = toxic. The scanning suffix is a static string, not animated.
-
-### 7.6 SpectreKnob atom (64 × 64 px)
-
-```
- outer ring (full circle, 2 px outline-variant)
- ↓
-┌────────────────┐    surface-bright bg
-│ ┌────────────┐ │    inner cap, 48×48, surface-container-highest bg,
-│ │      │     │ │    1 px surface-bright border, rotated to indicate value
-│ │      │     │ │    (mapping: 0 = -135°, 100 = +135°, sweep 270°)
-│ │      ▮     │ │    indicator line: 1 px wide × 4 px tall (w-1 h-3),
-│ │            │ │    toxic with 0 0 5px glow if value > 0, else muted-foreground
-│ └────────────┘ │
-└────────────────┘
-        + conic-gradient ring on the outer container, toxic 50% alpha,
-          fills clockwise from -135° proportional to value, with 0 0 10px
-          toxic-at-20% glow. Empty knobs draw no ring.
-```
-
-Click-drag rotates. Scroll wheel adjusts ±1. Double-click resets to default.
-Right-click opens JUCE's standard context menu (Reset, Enter value).
-Tooltip shows on hover after 500 ms (Phase 3).
+Custom-painted ghost outline. Inactive: inkDisabled. Hover: inkBody.
+Active: inkPrimary. It never glows, in any state. The ghost is discovered,
+never announced.
 
 ### 7.7 ModeButton atom
 
-Two states, no transition animation in v1:
-- Active: see 7.3
-- Inactive: see 7.3
-
-Click cycles through the 6-mode array. Phase 5 also adds a 300 ms
-SmoothedValue ramp on the underlying detector coefficients to avoid
-audible glitch on switch.
-
-### 7.8 GhostToggle atom (Delta Listen)
-
-A custom-painted ghost icon. When active, it glows `danger` red and
-the editor switches to delta output. Phase 7 wires the audio behavior;
-Phase 1 only renders the icon and toggles the visual state.
+Square, hairline, no fill, per 7.3. Labels in mono-label 11 px.
 
 ---
 
 ## 8. Locked-decision summary
 
-| # | Decision | Authoritative paragraph |
-|---|---|---|
-| 1 | 6 knobs in bottom row including Reap Mix | §7.4 |
-| 2 | Oversampling Off / 2x / 4x, default Off | §7.5 right region |
-| 3 | Delta Listen = ghost icon, header right cluster, glows danger when active | §7.1 |
-| 4 | Wasp Meter dual-row labels (numeric + named zones) | §7.2 frequency rail |
-| 5 | Stereo Behavior lives in The Crypt (Phase 8 deliverable) | not in v1 front panel |
-| 6 | Continuous resize, aspect 1.5385 | §1 |
-| 7 | DPD mark in header at 16×16 grayscale 70% | §7.1 |
-
----
-
-## 9. Phase 1 self-review gate (recap)
-
-The gate criteria from PLAN.md, restated against this doc:
-
-- [x] this file exists and lists every locked answer (sign-off implicit via auto-mode go-ahead)
-- [x] `tools/oklch-to-srgb.py` is reproducible (`--check` exits 0)
-- [x] every Stitch token in §4 has a `juce::Colour` constant in `Source/Theme/Palette.h` (55 tokens emitted)
-- [x] all five typography slots in §3 render from BinaryData with no CDN dependency
-- [x] `SpectreLookAndFeel` is the single source of color and font; `juce::Colour::fromString` and `juce::FontOptions` literal grep in `Source/UI/` and `Source/PluginEditor.cpp` return zero hits
-- [x] visual diff is **automated** via `tools/visual-diff.ps1 -ReferencePath …` (uses ImageMagick `compare -metric AE -fuzz 1%` if installed, falls back to `tools/compare-pngs.py` with PIL).
-- [ ] visual diff threshold of ±5% per-pixel against the rendered Stitch reference. **Currently 67.7%** — a deliberate consequence of the canonical decisions in §8 (Reap Mix added, ghost icon, named zone labels, footer chrome). The 5% target was set against the Stitch export *before* the canonical decisions were locked. Phase 2 will close the gap as the static UI shell converges with canonical layout. Re-run the diff at the end of Phase 2 with the same threshold.
-
----
-
-## 10. Open polish items (deferred to Phase 1.5 if needed)
-
-- Space Grotesk Black (900) is not in workspace. v1 ships with Bold (700)
-  for `display-title`. Visually the wordmark is slightly lighter than Stitch.
-  Acceptable for MVP per David. Pull Black if the diff exceeds 5%.
-- The DPD mark in §7.1 is currently a coded approximation (double square +
-  bright pixel) rather than the authoritative DPD logo asset. The Stitch
-  reference uses a 16 × 16 PNG that is hosted on a Google CDN; we can't
-  bundle that. If David wants the exact mark, he should drop the SVG/PNG
-  in `Resources/brand/` and we'll bundle it via BinaryData.
-- Animations (LIVE pulse, button hover, knob hover glow) are 60 Hz JUCE
-  Timer-driven. Phase 2 implements; Phase 1's Theme Test can render a
-  static frame at the "active" state.
+| # | Decision |
+|---|---|
+| 1 | 6 knobs in bottom row including Reap Mix |
+| 2 | Oversampling Off / 2x / 4x, default Off |
+| 3 | Delta Listen = ghost icon in the header, inkDisabled to inkPrimary |
+| 4 | Wasp Meter dual-row labels (numeric + named zones) |
+| 5 | Stereo Behavior lives in the advanced overlay (Phase 8 deliverable) |
+| 6 | Continuous resize, aspect 1.5385 |
+| 7 | DPD mark in header at 16 x 16 |
+| 8 | Palette is the DPD brand kit, hand-maintained in `Source/Theme/Palette.h` |
+| 9 | Border radius 0 everywhere; every border is a 1 px hairline in `rule` |
+| 10 | Damage threshold 12 dB of reduction in any band (stateError) |

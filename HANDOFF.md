@@ -289,7 +289,7 @@ cab-rot-2/
 │   └── screenshots/                # gitignored; visual-diff outputs land here
 ├── JUCE/                           # submodule pinned to tag 8.0.12
 ├── Resources/
-│   └── fonts/                      # SpaceGrotesk + JetBrainsMono ttf files (BinaryData)
+│   └── fonts/                      # DPD Display + Inter + JetBrainsMono ttf (BinaryData)
 ├── Source/
 │   ├── PluginProcessor.{h,cpp}     # APVTS schema lives here, processBlock is passthrough
 │   ├── PluginEditor.{h,cpp}        # composes regions, owns attachments + LookAndFeel
