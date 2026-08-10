@@ -44,7 +44,7 @@ void FizzReadout::paint (juce::Graphics& g)
     const float totalW = numW + gapP + pctW;
     const float numX = area.getCentreX() - totalW * 0.5f;
     const float numY = static_cast<float> (area.getY())
-                     + (area.getHeight() - numH) * 0.5f - 6.0f;
+                     + (area.getHeight() - numH) * 0.5f;
 
     g.setFont (heroFont);
     g.setColour (theme::inkPrimary);

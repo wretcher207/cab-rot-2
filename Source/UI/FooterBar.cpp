@@ -32,6 +32,8 @@ FooterBar::FooterBar()
     bButton.setRadioGroupId (2, juce::dontSendNotification);
     aButton.setClickingTogglesState (true);
     bButton.setClickingTogglesState (true);
+    aButton.setConnectedEdges (juce::Button::ConnectedOnRight);
+    bButton.setConnectedEdges (juce::Button::ConnectedOnLeft);
     addAndMakeVisible (aButton);
     addAndMakeVisible (bButton);
 

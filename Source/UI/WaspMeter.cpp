@@ -33,7 +33,9 @@ void WaspMeter::resized()
 
 void WaspMeter::paintHeader (juce::Graphics& g, juce::Rectangle<int> area)
 {
-    auto inner = area.withTrimmedRight (4);
+    // The header lines up with the plot, not the frame: the dB scale column
+    // sits under the label strip's left edge.
+    auto inner = area.withTrimmedLeft (65).withTrimmedRight (4);
 
     g.setFont   (theme::Fonts::monoLabel (10.0f));
     g.setColour (theme::inkMeta);
