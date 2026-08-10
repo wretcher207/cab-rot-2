@@ -83,6 +83,7 @@ public:
     {
         return activeAbSlot.load (std::memory_order_acquire);
     }
+    void selectAbSlotFromUi (int slotIndex);
 
     struct UiTelemetry
     {
@@ -139,6 +140,7 @@ private:
     std::atomic<int> pendingAbSlot  { -1 };
     std::atomic<int> applyingAbSlot { -1 };
     std::atomic<int> activeAbSlot   { 0 };
+    std::atomic<unsigned int> abApplyGeneration { 0 };
 
     // ------------------------------------------------------------------
     // Phase 4 DSP
@@ -199,6 +201,7 @@ private:
     int  preparedChannels { 2 };
     int  preparedBlockSize { 512 };
     bool isPrepared { false };
+    bool listenToRemovedSignal { false };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CabRotProcessor)
 };

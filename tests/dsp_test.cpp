@@ -677,23 +677,29 @@ void testAbSnapshots (Report& report)
     setParam (processor, params::reapMix, 100.0f);
     setParam (processor, params::maxReapDb, 12.0f);
 
-    setParam (processor, params::aOrB, 1.0f);
-    report.check (pumpUntilSlot (processor, 1), "A/B enters slot B on the message thread");
+    auto* abParameter = processor.getApvts().getParameter (params::aOrB);
+    report.check (abParameter != nullptr && ! abParameter->isAutomatable()
+                  && abParameter->isMetaParameter(),
+                  "A/B is a non-automatable state operation, not offline DSP automation");
+
+    processor.selectAbSlotFromUi (1);
+    report.check (processor.getActiveAbSlot() == 1,
+                  "UI selection applies slot B synchronously on the message thread");
     report.check (getParamValue (processor, params::digitalSand) == 0.0f,
                   "first entry to B clones the current A values");
 
     setParam (processor, params::digitalSand, 100.0f);
     setParam (processor, params::airRot, 75.0f);
 
-    setParam (processor, params::aOrB, 0.0f);
-    report.check (pumpUntilSlot (processor, 0), "A/B returns to slot A");
+    processor.selectAbSlotFromUi (0);
+    report.check (processor.getActiveAbSlot() == 0, "A/B returns to slot A");
     report.check (getParamValue (processor, params::digitalSand) == 0.0f
                   && getParamValue (processor, params::airRot) == 0.0f,
                   "slot A restores its own knob values");
 
     setParam (processor, params::cabSmooth, 25.0f);
-    setParam (processor, params::aOrB, 1.0f);
-    report.check (pumpUntilSlot (processor, 1), "A/B re-enters slot B");
+    processor.selectAbSlotFromUi (1);
+    report.check (processor.getActiveAbSlot() == 1, "A/B re-enters slot B");
     report.check (getParamValue (processor, params::digitalSand) == 100.0f
                   && getParamValue (processor, params::airRot) == 75.0f
                   && getParamValue (processor, params::cabSmooth) == 0.0f,
@@ -714,8 +720,9 @@ void testAbSnapshots (Report& report)
     };
 
     const auto bAudio = renderCurrent();
-    setParam (processor, params::aOrB, 0.0f);
-    report.check (pumpUntilSlot (processor, 0), "A/B switches to A before audio comparison");
+    processor.selectAbSlotFromUi (0);
+    report.check (processor.getActiveAbSlot() == 0,
+                  "A/B switches to A before audio comparison");
     const auto aAudio = renderCurrent();
 
     float processingDifference = 0.0f;
@@ -728,8 +735,8 @@ void testAbSnapshots (Report& report)
     report.check (processingDifference > 1.0e-3f,
                   "A/B restores processing behavior, not only displayed values");
 
-    setParam (processor, params::aOrB, 1.0f);
-    report.check (pumpUntilSlot (processor, 1), "A/B selects B before saving");
+    processor.selectAbSlotFromUi (1);
+    report.check (processor.getActiveAbSlot() == 1, "A/B selects B before saving");
     setParam (processor, params::digitalSand, 91.0f);
     setParam (processor, params::airRot, 73.0f);
 
@@ -743,14 +750,14 @@ void testAbSnapshots (Report& report)
                   && getParamValue (restored, params::airRot) == 73.0f,
                   "preset state restores active B including its latest edits");
 
-    setParam (restored, params::aOrB, 0.0f);
-    report.check (pumpUntilSlot (restored, 0)
+    restored.selectAbSlotFromUi (0);
+    report.check (restored.getActiveAbSlot() == 0
                   && getParamValue (restored, params::digitalSand) == 0.0f
                   && getParamValue (restored, params::cabSmooth) == 25.0f,
                   "preset state preserves inactive A");
 
-    setParam (restored, params::aOrB, 1.0f);
-    report.check (pumpUntilSlot (restored, 1)
+    restored.selectAbSlotFromUi (1);
+    report.check (restored.getActiveAbSlot() == 1
                   && getParamValue (restored, params::digitalSand) == 91.0f,
                   "preset state preserves B across a post-load round trip");
 
@@ -770,19 +777,26 @@ void testAbSnapshots (Report& report)
                   && getParamValue (legacyRestored, params::digitalSand) == 42.0f,
                   "legacy single-tree presets still load");
 
-    setParam (legacyRestored, params::aOrB, 0.0f);
-    report.check (pumpUntilSlot (legacyRestored, 0)
+    legacyRestored.selectAbSlotFromUi (0);
+    report.check (legacyRestored.getActiveAbSlot() == 0
                   && getParamValue (legacyRestored, params::digitalSand) == 42.0f,
                   "a legacy preset clones safely on first entry to the other slot");
 
     CabRotProcessor rapid;
     setParam (rapid, params::digitalSand, 17.0f);
+    rapid.selectAbSlotFromUi (1);
+    setParam (rapid, params::digitalSand, 55.0f);
+    rapid.selectAbSlotFromUi (0);
+
+    // Direct non-UI writes are coalesced by the safe fallback handoff. End
+    // on a slot different from the start so ignoring the writes cannot pass.
     setParam (rapid, params::aOrB, 1.0f);
     setParam (rapid, params::aOrB, 0.0f);
-    juce::MessageManager::getInstance()->runDispatchLoopUntil (40);
-    report.check (rapid.getActiveAbSlot() == 0
-                  && getParamValue (rapid, params::digitalSand) == 17.0f,
-                  "rapid A to B to A writes coalesce without corrupting A");
+    setParam (rapid, params::aOrB, 1.0f);
+    report.check (pumpUntilSlot (rapid, 1)
+                  && getParamValue (rapid, params::aOrB) == 1.0f
+                  && getParamValue (rapid, params::digitalSand) == 55.0f,
+                  "rapid external writes coalesce to the requested B snapshot");
 }
 
 // --------------------------------------------------------------------------

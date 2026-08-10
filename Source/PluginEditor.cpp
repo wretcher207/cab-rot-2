@@ -154,23 +154,15 @@ void CabRotEditor::wireAttachments()
         });
     abAttachment->sendInitialUpdate();
 
-    aButton.onClick = [&aButton, abParam]
+    aButton.onClick = [this, &aButton]
     {
         if (aButton.getToggleState())
-        {
-            abParam->beginChangeGesture();
-            abParam->setValueNotifyingHost (0.0f);
-            abParam->endChangeGesture();
-        }
+            processorRef.selectAbSlotFromUi (0);
     };
-    bButton.onClick = [&bButton, abParam]
+    bButton.onClick = [this, &bButton]
     {
         if (bButton.getToggleState())
-        {
-            abParam->beginChangeGesture();
-            abParam->setValueNotifyingHost (1.0f);
-            abParam->endChangeGesture();
-        }
+            processorRef.selectAbSlotFromUi (1);
     };
 
     // Oversample combo

@@ -131,7 +131,11 @@ juce::AudioProcessorValueTreeState::ParameterLayout CabRotProcessor::buildParame
 
     // Booleans
     layout.add (std::make_unique<BoolParam> (juce::ParameterID (params::deltaListen, 1), "Delta Listen", false));
-    layout.add (std::make_unique<BoolParam> (juce::ParameterID (params::aOrB,        1), "A/B Slot",     false));
+    const auto abAttributes = juce::AudioParameterBoolAttributes()
+        .withAutomatable (false)
+        .withMeta (true);
+    layout.add (std::make_unique<BoolParam> (juce::ParameterID (params::aOrB, 1),
+                                              "A/B Slot", false, abAttributes));
 
     // Input/Output trim (dB)
     auto db = juce::NormalisableRange<float> (-24.0f, 24.0f, 0.1f);
@@ -222,6 +226,28 @@ void CabRotProcessor::timerCallback()
         switchToSlotLocked (requested == 0 ? AbSlot::a : AbSlot::b);
 }
 
+void CabRotProcessor::selectAbSlotFromUi (int slotIndex)
+{
+    jassert (juce::MessageManager::existsAndIsCurrentThread());
+
+    const int requested = juce::jlimit (0, 1, slotIndex);
+    auto* selector = apvts.getParameter (params::aOrB);
+    if (selector == nullptr)
+        return;
+
+    selector->beginChangeGesture();
+    selector->setValueNotifyingHost (selector->convertTo0to1 (
+        static_cast<float> (requested)));
+    selector->endChangeGesture();
+
+    // Button clicks already run on the message thread, so complete their
+    // state transition synchronously. The timer remains only as a safe
+    // fallback for non-automated external parameter writes.
+    const juce::ScopedLock lock (abStateLock);
+    pendingAbSlot.exchange (-1, std::memory_order_acq_rel);
+    switchToSlotLocked (requested == 0 ? AbSlot::a : AbSlot::b);
+}
+
 juce::ValueTree& CabRotProcessor::slotTree (AbSlot slot) noexcept
 {
     return slot == AbSlot::a ? slotStateA : slotStateB;
@@ -297,8 +323,10 @@ void CabRotProcessor::switchToSlotLocked (AbSlot target)
 
     const int targetIndex = static_cast<int> (target);
     applyingAbSlot.store (targetIndex, std::memory_order_release);
+    abApplyGeneration.fetch_add (1, std::memory_order_acq_rel); // odd: replacing
     apvts.replaceState (arriving.createCopy());
     activeAbSlot.store (targetIndex, std::memory_order_release);
+    abApplyGeneration.fetch_add (1, std::memory_order_release); // even: complete
     applyingAbSlot.store (-1, std::memory_order_release);
 }
 
@@ -449,9 +477,36 @@ void CabRotProcessor::updateDspParameters (int numSamples) noexcept
 {
     using namespace dsp::tuning;
 
-    const auto norm = [] (const std::atomic<float>* v) noexcept
+    // replaceState redirects APVTS parameters one child at a time. Snapshot
+    // every raw value between two matching even generations so a host block
+    // sees all of A or all of B, never a transient hybrid.
+    const auto generationBefore = abApplyGeneration.load (std::memory_order_acquire);
+    if ((generationBefore & 1u) != 0u)
+        return;
+
+    const float fizzValue       = p.fizzHunt    ->load (std::memory_order_relaxed);
+    const float edgeValue       = p.edgePreserve->load (std::memory_order_relaxed);
+    const float smoothValue     = p.cabSmooth   ->load (std::memory_order_relaxed);
+    const float sandValue       = p.digitalSand ->load (std::memory_order_relaxed);
+    const float airValue        = p.airRot      ->load (std::memory_order_relaxed);
+    const float mixValue        = p.reapMix     ->load (std::memory_order_relaxed);
+    const float modeValue       = p.mode        ->load (std::memory_order_relaxed);
+    const float ceilingDb       = p.maxReapDb   ->load (std::memory_order_relaxed);
+    const float attackMs        = p.clampSpeed  ->load (std::memory_order_relaxed);
+    const float windowMs        = p.pickWindow  ->load (std::memory_order_relaxed);
+    const float stereoChoice    = p.stereoLink  ->load (std::memory_order_relaxed);
+    const float inputGainDb     = p.inputGain   ->load (std::memory_order_relaxed);
+    const float outputGainDb    = p.outputGain  ->load (std::memory_order_relaxed);
+    const bool wantsAuto        = p.autoGain    ->load (std::memory_order_relaxed) > 0.5f;
+    const bool listenToRemoved  = p.deltaListen ->load (std::memory_order_relaxed) >= 0.5f;
+
+    const auto generationAfter = abApplyGeneration.load (std::memory_order_acquire);
+    if (generationBefore != generationAfter || (generationAfter & 1u) != 0u)
+        return;
+
+    const auto norm = [] (float value) noexcept
     {
-        return juce::jlimit (0.0f, 1.0f, v->load (std::memory_order_relaxed) * 0.01f);
+        return juce::jlimit (0.0f, 1.0f, value * 0.01f);
     };
 
     const auto lift = [] (float value) noexcept
@@ -459,15 +514,15 @@ void CabRotProcessor::updateDspParameters (int numSamples) noexcept
         return value + kMainControlLift * value * (1.0f - value);
     };
 
-    const float fizz    = lift (norm (p.fizzHunt));
-    const float edge    = lift (norm (p.edgePreserve));
-    const float smooth  = lift (norm (p.cabSmooth));
-    const float sand    = lift (norm (p.digitalSand));
-    const float air     = lift (norm (p.airRot));
-    const float mixAmt  = lift (norm (p.reapMix));
+    const float fizz    = lift (norm (fizzValue));
+    const float edge    = lift (norm (edgeValue));
+    const float smooth  = lift (norm (smoothValue));
+    const float sand    = lift (norm (sandValue));
+    const float air     = lift (norm (airValue));
+    const float mixAmt  = lift (norm (mixValue));
 
     const int modeIndex = juce::jlimit (0, dsp::kNumModeConfigs - 1,
-                                        juce::roundToInt (p.mode->load (std::memory_order_relaxed)));
+                                        juce::roundToInt (modeValue));
     const auto& mode = dsp::kModes[modeIndex];
 
     modeThresholdOffsetDb.setTargetValue (mode.thresholdOffsetDb);
@@ -494,13 +549,8 @@ void CabRotProcessor::updateDspParameters (int numSamples) noexcept
     const float edgeBias = advance (modeEdgeBias);
     const float shelfStart = advance (modeShelfStart);
 
-    const float ceilingDb  = p.maxReapDb ->load (std::memory_order_relaxed);
-    const float attackMs   = p.clampSpeed->load (std::memory_order_relaxed);
-    const float windowMs   = p.pickWindow->load (std::memory_order_relaxed);
-    const bool  wantsAuto  = p.autoGain  ->load (std::memory_order_relaxed) > 0.5f;
-
     // Stereo Behavior: 0 Linked, 1 Partial, 2 Dual Mono.
-    const int linkChoice = juce::roundToInt (p.stereoLink->load (std::memory_order_relaxed));
+    const int linkChoice = juce::roundToInt (stereoChoice);
     const float link = (linkChoice == 0) ? 1.0f : (linkChoice == 1 ? 0.5f : 0.0f);
 
     const float thresholdDb = kThresholdAtZeroDb
@@ -531,11 +581,12 @@ void CabRotProcessor::updateDspParameters (int numSamples) noexcept
                            / juce::jmax (1.0e-6f, 1.0f - shelfStart);
     reducers[numProcessedBands - 1].setStaticTrimDb (-shelfDrive * kAirRotShelfMaxCutDb);
 
-    inputStage .setGainDb (p.inputGain ->load (std::memory_order_relaxed));
-    outputStage.setGainDb (p.outputGain->load (std::memory_order_relaxed));
+    inputStage .setGainDb (inputGainDb);
+    outputStage.setGainDb (outputGainDb);
 
     mixer.setMix (mixAmt);
     mixer.setAutoGain (wantsAuto);
+    listenToRemovedSignal = listenToRemoved;
 }
 
 bool CabRotProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -570,7 +621,7 @@ void CabRotProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 
     const auto startedAt = juce::Time::getHighResolutionTicks();
     updateDspParameters (numSamples);
-    const bool listenToRemoved = p.deltaListen->load (std::memory_order_relaxed) >= 0.5f;
+    const bool listenToRemoved = listenToRemovedSignal;
     BlockTelemetry telemetry;
 
     // Hosts are supposed to honour the block size they announced, but a
@@ -806,8 +857,10 @@ void CabRotProcessor::setStateInformation (const void* data, int sizeInBytes)
     pendingAbSlot.store (-1, std::memory_order_release);
     slotStateA = loadedA.isValid() ? loadedA.createCopy() : juce::ValueTree {};
     slotStateB = loadedB.isValid() ? loadedB.createCopy() : juce::ValueTree {};
+    abApplyGeneration.fetch_add (1, std::memory_order_acq_rel); // odd: replacing
     apvts.replaceState (selectedState.createCopy());
     activeAbSlot.store (selectedIndex, std::memory_order_release);
+    abApplyGeneration.fetch_add (1, std::memory_order_release); // even: complete
     applyingAbSlot.store (-1, std::memory_order_release);
 }
 } // namespace cabrot
