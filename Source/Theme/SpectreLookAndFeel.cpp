@@ -72,6 +72,7 @@ void SpectreLookAndFeel::drawRotarySlider (juce::Graphics& g,
     const auto trackR  = outerR * 0.92f;
     const auto thumbA  = rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
     const bool enabled = slider.isEnabled();
+    const bool interacting = slider.isMouseOverOrDragging();
 
     juce::Path track;
     track.addCentredArc (centre.x, centre.y, trackR, trackR,
@@ -85,7 +86,9 @@ void SpectreLookAndFeel::drawRotarySlider (juce::Graphics& g,
         valueArc.addCentredArc (centre.x, centre.y, trackR, trackR,
                                 0.0f, rotaryStartAngle, thumbA, true);
         g.setColour (inkPrimary);
-        g.strokePath (valueArc, juce::PathStrokeType (1.5f, juce::PathStrokeType::curved));
+        g.strokePath (valueArc,
+                      juce::PathStrokeType (interacting ? 2.5f : 1.5f,
+                                            juce::PathStrokeType::curved));
     }
 
     const float innerR = outerR * 0.52f;
@@ -94,7 +97,7 @@ void SpectreLookAndFeel::drawRotarySlider (juce::Graphics& g,
     indicator.lineTo (0.0f, -innerR);
     g.setColour (enabled ? inkPrimary : inkDisabled);
     g.strokePath (indicator,
-                  juce::PathStrokeType (1.0f),
+                  juce::PathStrokeType (interacting ? 1.5f : 1.0f),
                   juce::AffineTransform::rotation (thumbA).translated (centre));
 }
 

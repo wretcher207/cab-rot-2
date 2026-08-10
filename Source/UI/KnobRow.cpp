@@ -21,7 +21,7 @@ KnobRow::KnobRow()
     knobs.reserve (kNumKnobs);
     for (const auto& label : kLabels)
     {
-        auto knob = std::make_unique<SpectreKnob> (label);
+        auto knob = std::make_unique<SpectreKnob> (label, "%");
         addAndMakeVisible (*knob);
         knobs.push_back (std::move (knob));
     }

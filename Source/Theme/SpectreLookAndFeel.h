@@ -19,8 +19,8 @@ public:
     SpectreLookAndFeel();
     ~SpectreLookAndFeel() override = default;
 
-    // Knob: hairline track arc, bright value arc, 1px indicator line,
-    // no filled body.
+    // Knob: hairline track arc, bright value arc, and a line indicator.
+    // Value and indicator strokes strengthen while hovered or dragged.
     void drawRotarySlider (juce::Graphics&, int x, int y, int width, int height,
                            float sliderPos, float rotaryStartAngle, float rotaryEndAngle,
                            juce::Slider&) override;

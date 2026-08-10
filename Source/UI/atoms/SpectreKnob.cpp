@@ -13,7 +13,6 @@ SpectreKnob::SpectreKnob (juce::String labelText, juce::String unitsSuffix)
                                 juce::degreesToRadians ( 135.0f),
                                 true);
     slider.setRange (0.0, 100.0, 0.01);
-    slider.setDoubleClickReturnValue (true, 50.0);
     slider.setPopupMenuEnabled (true);
     slider.setScrollWheelEnabled (true);
     slider.setVelocityModeParameters (1.0, 1, 0.0, false);
