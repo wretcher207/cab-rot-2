@@ -32,6 +32,7 @@ private:
     void paintHeader  (juce::Graphics&, juce::Rectangle<int>);
     void paintFrame   (juce::Graphics&, juce::Rectangle<int>);
     void paintDbScale (juce::Graphics&, juce::Rectangle<int>);
+    void paintTicks   (juce::Graphics&, juce::Rectangle<int>);
     void paintReference (juce::Graphics&, juce::Rectangle<int>);
     void paintReductionCurve (juce::Graphics&, juce::Rectangle<int>);
     void paintLabels  (juce::Graphics&, juce::Rectangle<int>);

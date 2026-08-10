@@ -63,8 +63,25 @@ void WaspMeter::paintFrame (juce::Graphics& g, juce::Rectangle<int> area)
     paintDbScale (g, scale);
 
     auto plot = inner.reduced (12, 12).withTrimmedLeft (4);
+    paintTicks (g, plot);
     paintReference (g, plot);
     paintReductionCurve (g, plot);
+}
+
+void WaspMeter::paintTicks (juce::Graphics& g, juce::Rectangle<int> plot)
+{
+    // Six physical marks at the labelled frequency positions along the
+    // frame's bottom inside edge. The slot math matches paintLabels so the
+    // ticks sit directly above the numerals.
+    const int slots  = 6;
+    const float step = static_cast<float> (plot.getWidth()) / static_cast<float> (slots - 1);
+
+    g.setColour (theme::inkMeta.withAlpha (0.6f));
+    for (int i = 0; i < slots; ++i)
+    {
+        const int cx = plot.getX() + juce::roundToInt (i * step);
+        g.fillRect (cx, plot.getBottom() - 5, 1, 5);
+    }
 }
 
 float WaspMeter::dbToY (float reductionMagnitudeDb,

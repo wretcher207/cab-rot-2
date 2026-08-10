@@ -65,7 +65,7 @@ void SpectreKnob::resized()
     // Cap the dial at 96 for resized layouts so it stays a control, not a
     // monument, and never below 56 so the indicator stays legible at min
     // size.
-    const int side = juce::jlimit (56, 96,
+    const int side = juce::jlimit (56, 104,
                                    juce::jmin (area.getWidth(), area.getHeight()));
     auto knobArea = juce::Rectangle<int> (side, side).withCentre (area.getCentre());
     slider.setBounds (knobArea);

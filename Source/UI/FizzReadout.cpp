@@ -24,7 +24,7 @@ void FizzReadout::paint (juce::Graphics& g)
     // The number is a numeric readout, so it renders in JetBrains Mono even
     // at display size. No glow, no halo: primary ink on the ground, and the
     // percent sign sits on the same baseline in metadata grey.
-    const float numPx = juce::jlimit (44.0f, 84.0f, static_cast<float> (area.getHeight()) * 0.55f);
+    const float numPx = juce::jlimit (40.0f, 72.0f, static_cast<float> (area.getHeight()) * 0.50f);
     auto heroFont = theme::Fonts::mono (numPx, -0.04f);
     auto suffixFont = theme::Fonts::mono (juce::jmax (18.0f, numPx * 0.33f));
 
