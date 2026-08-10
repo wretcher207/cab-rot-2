@@ -1,9 +1,9 @@
 # Cab Rot - Session Handoff
 
-**Last updated**: 2026-08-10 (UI truth baseline through `24fa790`)
+**Last updated**: 2026-08-10 (UI truth branch published and VST3 installed)
 **Repo**: https://github.com/wretcher207/cab-rot-2 (PUBLIC)
 **Working dir**: `C:\Users\wretc\workspace\cab-rot` (the old `C:\Users\david\...` Mac-era paths in this file are dead)
-**Branch / verified implementation baseline**: `fix/ui-truth` at `24fa790`, local with no upstream. `main` and `origin/main` remain at `17caba9`.
+**Branch / verified implementation baseline**: `fix/ui-truth`, tracked by `origin/fix/ui-truth`, with code through `24fa790`. `main` and `origin/main` remain at `17caba9`.
 **Current phase**: Phase 4 DSP and UI truth Tiers 1 through 3 are implemented. Six provisional modes are visible and tested; David's by-ear approval is still open. Oversampling remains hidden and unimplemented.
 
 ---
@@ -14,7 +14,7 @@ Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. It makes s
 
 David chose to keep the **Cab Rot** identity. The toxic-green UI is now fully replaced by the Dead Pixel Design brand system (2026-08-10 facelift): near-black monochrome, hairlines, zero radius, DPD Display / Inter / JetBrains Mono. `Source/Theme/Palette.h` is hand-maintained from the brand kit; the Stitch palette and `tools/oklch-to-srgb.py` are deleted. See `design/FACELIFT-REPORT.md` for the rule-by-rule map and `design/CANONICAL-UI.md` for the rewritten spec. After listening, he asked for every main knob to become effective by "just a hair." The change (now committed on `phase-4-dsp`) adds a shallow response lift: a control at 50% drives the DSP at 52%, while 0% remains exact and 100% is unchanged. The strength constant is `kMainControlLift` in `Source/DSP/Tuning.h`; the curve is applied to all six main controls in `CabRotProcessor::updateDspParameters()`.
 
-The installed VST3 at `C:\Users\wretc\AppData\Local\Programs\Common\VST3\Cab Rot.vst3` predates `fix/ui-truth`. Do not treat it as the current UI-truth build or overwrite it while REAPER has it locked. Installation is a separate, explicit step after the final build and screenshot gate.
+The user-scope VST3 at `C:\Users\wretc\AppData\Local\Programs\Common\VST3\Cab Rot.vst3` was rebuilt from `fix/ui-truth` at `26606b1`, installed on 2026-08-10, and verified byte-identical to the Release bundle. The installed binary SHA-256 is `A41C09306A49D9FF315A6FD78DA5F1A3BFA5804F0AE34720832712F140F428D5`. REAPER was left running with a modified project; rescan or restart the host before judging the newly installed binary.
 
 The single source of truth for the build sequence is [PLAN.md](PLAN.md). Per-element design specs live in [design/CANONICAL-UI.md](design/CANONICAL-UI.md). This document is the cold-boot onboarding.
 
@@ -37,7 +37,7 @@ The single source of truth for the build sequence is [PLAN.md](PLAN.md). Per-ele
 | UI truth Tier 3 | `3d03744` | Added the exact six-profile provisional mode table, 300 ms ramps for all derivatives, no-click/distinct-output tests, and revealed the now-functional grid. |
 | A/B coherence | `24fa790` | Made A/B a synchronous non-automatable meta operation for UI use, guarded APVTS replacement with an audio-thread generation check, and strengthened the rapid-write regression. |
 
-The final five-target Release build at `24fa790` succeeded for VST3,
+The final five-target Release build from `26606b1` (code baseline `24fa790`) succeeded for VST3,
 Standalone, PassthroughTest, DspTest, and ThemeTest with 0 warnings and 0
 errors. Passthrough is 3/3 and DSP is 37/37 with the CPU benchmark skipped.
 
@@ -417,6 +417,11 @@ $env:CABROT_SKIP_CPU_BENCH='1'
 
 ## Changelog
 
+- **2026-08-10**: Published `fix/ui-truth` to `origin/fix/ui-truth`, rebuilt all
+  five Release targets with 0 warnings and 0 errors, passed 3/3 passthrough and
+  37/37 DSP assertions with the CPU benchmark skipped, and installed the
+  byte-identical VST3 bundle to the user-scope folder. REAPER remained open on
+  a modified project and was not force-closed.
 - **2026-08-10**: UI truth Tiers 1 through 3 on `fix/ui-truth`, through
   `24fa790`. Removed fabricated CPU, meters, Fizz, graph data, unconditional
   LIVE motion, and permanent PROCESSING. Added one 30 Hz telemetry path for
