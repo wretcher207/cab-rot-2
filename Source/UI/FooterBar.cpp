@@ -7,16 +7,7 @@ namespace cabrot::ui
 {
 namespace
 {
-// Version plus real processing state, mono metadata grey. The old
-// "SCANNING FOR HARSHNESS" suffix described a costume, not a state.
-const juce::String kStatusText { "V0.1.0 / PROCESSING" };
-
-int statusTextWidth()
-{
-    juce::GlyphArrangement va;
-    va.addLineOfText (theme::Fonts::monoLabel (10.0f), kStatusText, 0.0f, 0.0f);
-    return juce::roundToInt (va.getBoundingBox (0, -1, true).getWidth() + 8.0f);
-}
+const juce::String kVersionText { "V0.1.0" };
 }
 
 FooterBar::FooterBar()
@@ -44,6 +35,30 @@ FooterBar::FooterBar()
     addAndMakeVisible (oversample);
 }
 
+void FooterBar::setStatusText (juce::String text)
+{
+    text = text.trim().toUpperCase();
+    if (statusText == text)
+        return;
+
+    statusText = std::move (text);
+    resized();
+    repaint();
+}
+
+juce::String FooterBar::formattedStatusText() const
+{
+    return statusText.isEmpty() ? kVersionText
+                                : kVersionText + " / " + statusText;
+}
+
+int FooterBar::statusTextWidth() const
+{
+    juce::GlyphArrangement va;
+    va.addLineOfText (theme::Fonts::monoLabel (10.0f), formattedStatusText(), 0.0f, 0.0f);
+    return juce::roundToInt (va.getBoundingBox (0, -1, true).getWidth() + 8.0f);
+}
+
 void FooterBar::paint (juce::Graphics& g)
 {
     auto area = getLocalBounds();
@@ -59,7 +74,8 @@ void FooterBar::paint (juce::Graphics& g)
 
     g.setColour (theme::inkMeta);
     g.setFont   (theme::Fonts::monoLabel (10.0f));
-    g.drawText  (kStatusText, versionArea, juce::Justification::centredRight, false);
+    g.drawText  (formattedStatusText(), versionArea,
+                 juce::Justification::centredRight, false);
 
     // Divider between OS combo and status text.
     g.setColour (theme::rule);

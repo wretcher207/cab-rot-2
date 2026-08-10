@@ -20,16 +20,22 @@ public:
     void paint   (juce::Graphics&) override;
     void resized() override;
 
+    void setStatusText (juce::String text);
+
     juce::TextButton& getButtonA()      noexcept { return aButton; }
     juce::TextButton& getButtonB()      noexcept { return bButton; }
     juce::ComboBox&   getOversampleBox() noexcept { return oversample; }
 
 private:
+    juce::String formattedStatusText() const;
+    int statusTextWidth() const;
+
     juce::TextButton aButton      { "A" };
     juce::TextButton bButton      { "B" };
     MeterPill        inMeter      { "IN" };
     MeterPill        outMeter     { "OUT" };
     juce::ComboBox   oversample;
+    juce::String     statusText;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FooterBar)
 };
