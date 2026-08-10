@@ -305,6 +305,24 @@ and the report line is corrected.
 Separately, `PluginEditor.cpp:210` scales the right column width by the
 height ratio. Correct only under the aspect lock. Flagged in §1.
 
+**Verified behaviourally.** `tests/editor_test.cpp` (target
+`CabRot_EditorTest`, CTest name `editor`) constructs the real processor and
+editor headlessly and measures the claims instead of reading them:
+
+- default size is exactly 1200 x 780, ratio 1.5385;
+- 1000 x 650 and 1600 x 1040 are both reachable, confirming the corrected
+  extremes;
+- at min, default and max, every visible child stays inside the window,
+  which is the "no clipping" property the missing screenshots were meant to
+  show;
+- the whole editor paints at all three sizes without crashing;
+- `mode` exposes exactly six profiles (5150, Recto, HM-2, Djent, Blackened,
+  Sludge) and `oversampling` is Off / 2x / 4x defaulting to Off, matching
+  locked decisions 1 and 2.
+
+Run the full suite with `ctest --test-dir build -C Release`: four gates
+(`passthrough`, `dsp`, `editor`, `render`), all passing.
+
 ### 9.3 Evidence cited in the facelift report is not reproducible
 
 `design/screenshots/` is gitignored (`.gitignore:45`), so every screenshot
@@ -328,6 +346,9 @@ Reproduced from a clean `build/`:
 | `CabRot_ThemeTest` | builds clean |
 | `CabRot_VST3` | builds clean, produces `Cab Rot.vst3` |
 | `CabRot_RenderTest` (new) | builds clean, render gate passes, exit 0 |
+| `CabRot_EditorTest` (new) | builds clean, 16 editor checks pass, exit 0 |
+
+`ctest --test-dir build -C Release` runs all four gates: 4/4 passing.
 
 Zero compiler warnings and zero errors from project sources across all five,
 matching what the report claimed. So the report's build numbers were
@@ -544,4 +565,15 @@ Three new divergences the brief exposes, none previously recorded:
   explicit SKIPPED state, brief line anchors, and inverted-range detection;
   `tools/test-verify-exit-codes.py` pins the exit-code contract. Full suite:
   99 checks, passing from a clean clone.
+- **2026-08-10, built and measured**: the earlier "no toolchain" conclusion
+  was wrong. MSVC 19.44 and CMake 3.31.6 are installed but off `PATH`;
+  `tools/build-msvc.cmd` activates them and JUCE 8.0.12 is fetched as a
+  tarball. All targets build with zero warnings. §9.3 now reports reproduced
+  build results, §9.2 is verified behaviourally by the new
+  `CabRot_EditorTest`, and §9.7 is superseded by §9.7a, where
+  `CabRot_RenderTest` measures the damage-threshold rendering and finds the
+  predicted ink leak does not occur. `ctest -C Release`: 4/4 gates pass.
+  Citation checker gained range-endpoint anchors after this work exposed a
+  real blind spot (a cited range silently drifted 11 lines while the checker
+  stayed green); 107 checks.
 

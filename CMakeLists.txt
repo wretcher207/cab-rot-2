@@ -284,6 +284,44 @@ if(CABROT_BUILD_TESTS)
 
     add_test(NAME dsp COMMAND CabRot_DspTest)
     set_tests_properties(dsp PROPERTIES TIMEOUT 180)
+
+    # Editor gate. Constructs the real editor and lays it out at the resize
+    # extremes, so design/CANONICAL-UI.md sections 9.2 and 9.5 are checked
+    # against behaviour rather than against a reading of the source.
+    juce_add_console_app(CabRot_EditorTest
+        PRODUCT_NAME    "CabRot Editor Test"
+        COMPANY_NAME    "Dead Pixel Harmonix"
+        BUNDLE_ID       "com.deadpixelharmonix.cabrot.editortest")
+
+    target_sources(CabRot_EditorTest
+        PRIVATE
+            tests/editor_test.cpp
+            ${CABROT_SHARED_SOURCES})
+
+    target_include_directories(CabRot_EditorTest PRIVATE Source)
+
+    target_compile_definitions(CabRot_EditorTest
+        PRIVATE
+            JUCE_WEB_BROWSER=0
+            JUCE_USE_CURL=0
+            JUCE_STANDALONE_APPLICATION=1)
+
+    target_link_libraries(CabRot_EditorTest
+        PRIVATE
+            juce::juce_audio_utils
+            juce::juce_dsp
+            CabRotBinaryData
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_warning_flags)
+
+    if(MSVC)
+        target_compile_options(CabRot_EditorTest PRIVATE /wd4458)
+    endif()
+
+    set_target_properties(CabRot_EditorTest PROPERTIES FOLDER tests)
+
+    add_test(NAME editor COMMAND CabRot_EditorTest)
+    set_tests_properties(editor PROPERTIES TIMEOUT 60)
 endif()
 
 # ----------------------------------------------------------------------------
@@ -381,6 +419,13 @@ if(CABROT_BUILD_RENDER_TEST)
     endif()
 
     set_target_properties(CabRot_RenderTest PROPERTIES FOLDER "Tests")
+
+    # Registered with CTest only when the test suite is enabled, so
+    # `ctest -C Release` covers the render gate too.
+    if(CABROT_BUILD_TESTS)
+        add_test(NAME render COMMAND CabRot_RenderTest)
+        set_tests_properties(render PROPERTIES TIMEOUT 60)
+    endif()
 endif()
 
 # ----------------------------------------------------------------------------
