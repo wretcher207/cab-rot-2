@@ -31,8 +31,10 @@ real processing, and a control without audio behavior stays hidden.
   keeps audio blocks on one coherent slot while APVTS state is replaced.
 - Mode buttons are visible because the provisional six-profile DSP table now
   changes audio with 300 ms derivative ramps. The voicings still require
-  David's by-ear approval. Oversampling remains hidden until the real 2x / 4x
-  chain lands.
+  David's by-ear approval. The oversampling combo is visible because the real
+  2x / 4x chain landed (2026-08-12): linear-phase FIR stages around the
+  reduction core, latency reported to the host, factor switches applied
+  allocation-free on the audio thread.
 - Continuous resize, aspect-locked 1.54:1 (1000x650 min to 1600x1040 max)
 - Native JUCE rendering, no WebView
 - Aesthetic: the Dead Pixel Design brand system. Near-black monochrome, phosphor

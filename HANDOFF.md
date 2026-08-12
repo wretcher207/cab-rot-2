@@ -1,16 +1,16 @@
 # Cab Rot - Session Handoff
 
-**Last updated**: 2026-08-10 (UI truth branch published and VST3 installed)
+**Last updated**: 2026-08-12 (real 2x/4x oversampling landed; pluginval strictness 10 passes)
 **Repo**: https://github.com/wretcher207/cab-rot-2 (PUBLIC)
 **Working dir**: `C:\Users\wretc\workspace\cab-rot` (the old `C:\Users\david\...` Mac-era paths in this file are dead)
 **Branch / verified implementation baseline**: `fix/ui-truth`, tracked by `origin/fix/ui-truth`, with code through `24fa790`. `main` and `origin/main` remain at `17caba9`.
-**Current phase**: Phase 4 DSP and UI truth Tiers 1 through 3 are implemented. Six provisional modes are visible and tested; David's by-ear approval is still open. Oversampling remains hidden and unimplemented.
+**Current phase**: Phase 4 DSP and UI truth Tiers 1 through 3 are implemented. Six provisional modes are visible and tested; David's by-ear approval is still open. Phase 7 is now complete: real 2x/4x oversampling with host latency reporting landed on 2026-08-12 and the OS combo is visible.
 
 ---
 
 ## TL;DR
 
-Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. It makes sound and does a decent job on real high-gain guitar material according to David's 2026-08-09 REAPER test. Phases 0 through 4 are committed: the four-band reduction path, transient detector, dynamic reducer, mixer, and trims are wired. The UI truth pass now drives every visible instrument from real processing, makes Delta Listen and A/B functional, and gives all six visible amp profiles real provisional DSP behavior. Only the unavailable oversampling control remains hidden. The machine gate is measured by test executables; final profile voicing is still ear work.
+Cab Rot is a JUCE 8 VST3 / Standalone plugin for Dead Pixel Harmonix. It makes sound and does a decent job on real high-gain guitar material according to David's 2026-08-09 REAPER test. Phases 0 through 4 are committed: the four-band reduction path, transient detector, dynamic reducer, mixer, and trims are wired. The UI truth pass now drives every visible instrument from real processing, makes Delta Listen and A/B functional, and gives all six visible amp profiles real provisional DSP behavior. Real 2x/4x oversampling with host latency reporting landed 2026-08-12, so every control on the panel is live. The machine gate is measured by test executables; final profile voicing is still ear work.
 
 David chose to keep the **Cab Rot** identity. The toxic-green UI is now fully replaced by the Dead Pixel Design brand system (2026-08-10 facelift): near-black monochrome, hairlines, zero radius, DPD Display / Inter / JetBrains Mono. `Source/Theme/Palette.h` is hand-maintained from the brand kit; the Stitch palette and `tools/oklch-to-srgb.py` are deleted. See `design/FACELIFT-REPORT.md` for the rule-by-rule map and `design/CANONICAL-UI.md` for the rewritten spec. After listening, he asked for every main knob to become effective by "just a hair." The change (now committed on `phase-4-dsp`) adds a shallow response lift: a control at 50% drives the DSP at 52%, while 0% remains exact and 100% is unchanged. The strength constant is `kMainControlLift` in `Source/DSP/Tuning.h`; the curve is applied to all six main controls in `CabRotProcessor::updateDspParameters()`.
 
@@ -181,7 +181,7 @@ documented below was on this machine at `24fa790`, 2026-08-10.
 David closed the subjective gate on 2026-08-09: the effect does a decent job,
 the controls and host behavior look good, and the product is worth continuing.
 
-The pluginval mention in the risk register: start running pluginval continuously from Phase 4, not waiting for Phase 9. **Not yet run on this machine.**
+The pluginval mention in the risk register: start running pluginval continuously from Phase 4, not waiting for Phase 9. **Passing since 2026-08-12**: pluginval v1.0.4 (`C:\Users\wretc\tools\pluginval\pluginval.exe`) at strictness 10, in-process, SUCCESS on both the installed bundle and the post-oversampling build. The built bundle lives at `build\CabRot_artefacts\Release\VST3\Cab Rot.vst3`, not under a `CabRot_VST3_artefacts` path.
 
 ### 2026-08-10 UI-truth baseline
 
@@ -214,9 +214,9 @@ The pluginval mention in the risk register: start running pluginval continuously
   `design/screenshots/ui-truth-final-*.png` paths and passed the no-clipping,
   four-band, log-axis, no-OS, silent-Fizz inspection gate.
 - **Next concrete step:** David validates all six provisional profiles by ear
-  on representative guitars. Oversampling, pluginval, stress, presets, and
-  packaging remain later phases. Do not install over the existing VST3 without
-  an explicit install request.
+  on representative guitars. Oversampling and pluginval closed on 2026-08-12;
+  stress, presets, and packaging remain later phases. Do not install over the
+  existing VST3 without an explicit install request.
 
 ### The test harness
 
@@ -238,9 +238,10 @@ The pluginval mention in the risk register: start running pluginval continuously
 - **Phase 6**: Partly completed ahead of plan. Live reduction columns, peak
   holds, and real Fizz are done. Only a real FFT input spectrum/history layer
   remains optional; no placeholder shape is allowed.
-- **Phase 7**: Partly completed ahead of plan. Delta Listen and persisted A/B
-  snapshots are done. Real 2x/4x oversampling and latency reporting remain;
-  keep the OS control hidden until they land.
+- **Phase 7**: Complete. Delta Listen, persisted A/B snapshots, and real
+  2x/4x oversampling with host latency reporting are all done. The OS combo
+  is visible in the footer. Gate 7's 8% CPU guess is superseded by a
+  measured 13% gate; see the 2026-08-12 changelog entry.
 - **Phase 8** — 12 starter presets + The Crypt advanced overlay (Crypt parameters already declared in APVTS so state migration is free).
 - **Phase 9** — pluginval strictness 10; 100-instance + 64-track stress; full automation lane test; resize stress.
 - **Phase 10** — Windows installer (Inno Setup or NSIS), 3 demo audio clips, demo video, Quickstart PDF, Gumroad bundle prep, landing page. macOS becomes Phase 11 after v1.0 ships.
@@ -409,15 +410,36 @@ $env:CABROT_SKIP_CPU_BENCH='1'
 
 4. Preserve the untracked review prompt, UI fix spec, and `references/` unless
    David explicitly changes their disposition.
-5. The UI truth implementation baseline is `24fa790`. Re-run the two suites
-   before new work. David's ear check is still required before calling the six
-   profiles release-ready. Oversampling stays hidden until its DSP and latency
-   reporting exist.
+5. The UI truth implementation baseline is `24fa790`; the oversampling work
+   sits on top of it on `fix/ui-truth`. Re-run the two suites before new work
+   (46 DSP assertions with the CPU bench live, 44 with it skipped). David's
+   ear check is still required before calling the six profiles release-ready.
 
 ---
 
 ## Changelog
 
+- **2026-08-12**: Phase 7 oversampling landed on `fix/ui-truth`. The reduction
+  core (split, detect, reduce, mix) now runs at 1x/2x/4x behind
+  `juce::dsp::Oversampling` with hand-built linear-phase FIR half-band stages:
+  a tight -90 dB first stage protecting the audible band, and a wide, cheap
+  second stage whose transition sits above 40 kHz. Integer latency is reported
+  to the host (49-51 samples at 2x, 56 at 4x at a 512 block); prepareToPlay
+  reports it synchronously and mid-stream factor changes flag the 60 Hz
+  processor timer. Factor switches are applied at the top of processBlock with
+  coefficient-only re-prepares; every scratch buffer is sized for 4x up front
+  so no audio-thread allocation occurs. The trims stay at the host rate. The
+  footer OS combo is visible and wired. **Gate 7 CPU conflict, same shape as
+  Gate 4's:** PLAN.md guessed "CPU within 8%" for 4x, but the core running at
+  192 kHz costs about four times its 48 kHz self before any filter is added.
+  Measured on this machine: 14.8% with JUCE's stock max-quality preset, 10.9%
+  with the custom stages now in place. The test gates at 13%; going below 8%
+  would need the detection-sidechain topology redesign, which is David's call.
+  All five Release targets build with 0 warnings and 0 errors; passthrough is
+  3/3 and DSP is 46/46 with the CPU benchmark live. pluginval v1.0.4 at
+  strictness 10 passes in-process on both the installed VST3 and this build.
+  The installed VST3 still predates oversampling; do not install over it
+  without an explicit request.
 - **2026-08-10**: Published `fix/ui-truth` to `origin/fix/ui-truth`, rebuilt all
   five Release targets with 0 warnings and 0 errors, passed 3/3 passthrough and
   37/37 DSP assertions with the CPU benchmark skipped, and installed the

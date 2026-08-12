@@ -187,7 +187,9 @@ void CabRotEditor::wireAttachments()
     headerBar.getDeltaToggle().setTooltip ("Delta Listen: hear the removed signal");
     footerBar.getButtonA()     .setTooltip ("A/B: select snapshot A");
     footerBar.getButtonB()     .setTooltip ("A/B: select snapshot B");
-    footerBar.getOversampleBox().setTooltip ("Oversampling factor");
+    footerBar.getOversampleBox().setTooltip (
+        "Oversampling: run the reduction at 2x or 4x internally. "
+        "Adds latency, reported to the host");
 }
 
 void CabRotEditor::setUiAnimationEnabled (bool enabled)

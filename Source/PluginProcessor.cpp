@@ -181,6 +181,7 @@ CabRotProcessor::CabRotProcessor()
     p.outputGain   = apvts.getRawParameterValue (params::outputGain);
     p.deltaListen  = apvts.getRawParameterValue (params::deltaListen);
     p.mode         = apvts.getRawParameterValue (params::mode);
+    p.oversampling = apvts.getRawParameterValue (params::oversampling);
     p.stereoLink   = apvts.getRawParameterValue (params::stereoLink);
     p.clampSpeed   = apvts.getRawParameterValue (params::clampSpeed);
     p.maxReapDb    = apvts.getRawParameterValue (params::maxReapDb);
@@ -219,6 +220,9 @@ void CabRotProcessor::parameterChanged (const juce::String& parameterId, float n
 
 void CabRotProcessor::timerCallback()
 {
+    if (latencyReportDirty.exchange (false, std::memory_order_acq_rel))
+        setLatencySamples (pendingLatencySamples.load (std::memory_order_relaxed));
+
     const juce::ScopedLock lock (abStateLock);
     const int requested = pendingAbSlot.exchange (-1, std::memory_order_acq_rel);
 
@@ -338,25 +342,56 @@ void CabRotProcessor::prepareToPlay (double sampleRate, int maximumExpectedSampl
 
     inputStage .prepare (sampleRate, preparedChannels);
     outputStage.prepare (sampleRate, preparedChannels);
-    splitter   .prepare (sampleRate, preparedChannels, preparedBlockSize);
-    mixer      .prepare (sampleRate, preparedChannels);
 
-    for (auto& d : detectors)
-        d.prepare (sampleRate);
-
-    for (auto& r : reducers)
-        r.prepare (sampleRate, preparedChannels);
+    // The reduction core may run at up to 4x, so every scratch buffer it
+    // touches is sized for the largest oversampled chunk up front. Factor
+    // switches then never need an audio-thread allocation.
+    const int maxCoreBlock = preparedBlockSize * kMaxOsFactor;
 
     for (auto& b : bandBuffers)
     {
-        b.setSize (preparedChannels, preparedBlockSize, false, false, true);
+        b.setSize (preparedChannels, maxCoreBlock, false, false, true);
         b.clear();
     }
 
-    deltaBuffer.setSize (preparedChannels, preparedBlockSize, false, false, true);
+    deltaBuffer.setSize (preparedChannels, maxCoreBlock, false, false, true);
     deltaBuffer.clear();
 
-    gateScratch.assign ((size_t) preparedBlockSize, 0.0f);
+    gateScratch.assign ((size_t) maxCoreBlock, 0.0f);
+    osChannelPointers.assign ((size_t) preparedChannels, nullptr);
+
+    // Hand-built stages instead of JUCE's stock quality presets. The first
+    // stage is the only one whose transition band can touch the audible
+    // range, so it gets the tight -90 dB linear-phase filter. The second
+    // stage's transition sits above 40 kHz at any supported host rate, so a
+    // wide, short filter protects the audio band just as completely at a
+    // fraction of the stock preset's cost (measured: 14.8% -> ~10% at 4x).
+    using Oversampler = juce::dsp::Oversampling<float>;
+
+    for (size_t stage = 0; stage < oversamplers.size(); ++stage)
+    {
+        auto os = std::make_unique<Oversampler> ((size_t) preparedChannels);
+        os->clearOversamplingStages();
+        os->addOversamplingStage (Oversampler::filterHalfBandFIREquiripple,
+                                  0.05f, -90.0f, 0.06f, -80.0f);
+
+        if (stage == 1)
+            os->addOversamplingStage (Oversampler::filterHalfBandFIREquiripple,
+                                      0.25f, -80.0f, 0.26f, -75.0f);
+
+        os->setUsingIntegerLatency (true);
+        os->initProcessing ((size_t) preparedBlockSize);
+        oversamplers[stage] = std::move (os);
+    }
+
+    // Prepares splitter, detectors, reducers, and mixer at the effective rate.
+    currentOsChoice = -1;
+    applyOversamplingConfig (juce::jlimit (0, 2,
+        juce::roundToInt (p.oversampling->load (std::memory_order_relaxed))));
+
+    // prepareToPlay runs off the audio thread, so report directly.
+    latencyReportDirty.store (false, std::memory_order_release);
+    setLatencySamples (pendingLatencySamples.load (std::memory_order_relaxed));
 
     initialiseModeSmoothing (sampleRate);
     updateDspParameters (0);
@@ -373,6 +408,46 @@ void CabRotProcessor::prepareToPlay (double sampleRate, int maximumExpectedSampl
     cpuLoadEmaSeeded = false;
 
     isPrepared = true;
+}
+
+juce::dsp::Oversampling<float>* CabRotProcessor::activeOversampler() const noexcept
+{
+    if (currentOsChoice <= 0 || currentOsChoice > (int) oversamplers.size())
+        return nullptr;
+
+    return oversamplers[(size_t) (currentOsChoice - 1)].get();
+}
+
+void CabRotProcessor::applyOversamplingConfig (int osChoice)
+{
+    osChoice = juce::jlimit (0, (int) oversamplers.size(), osChoice);
+
+    const int    factor        = 1 << osChoice;
+    const double effectiveRate = preparedSampleRate * factor;
+    const int    effectiveBlock = preparedBlockSize * factor;
+
+    // These prepares only recompute coefficients and reset state; every
+    // buffer they rely on was sized for 4x in prepareToPlay, so a factor
+    // switch mid-stream performs no allocation on the audio thread.
+    splitter.prepare (effectiveRate, preparedChannels, effectiveBlock);
+    mixer   .prepare (effectiveRate, preparedChannels);
+
+    for (auto& d : detectors)
+        d.prepare (effectiveRate);
+
+    for (auto& r : reducers)
+        r.prepare (effectiveRate, preparedChannels);
+
+    if (osChoice > 0 && oversamplers[(size_t) (osChoice - 1)] != nullptr)
+        oversamplers[(size_t) (osChoice - 1)]->reset();
+
+    const int latency = osChoice == 0
+        ? 0
+        : juce::roundToInt (oversamplers[(size_t) (osChoice - 1)]->getLatencyInSamples());
+
+    pendingLatencySamples.store (latency, std::memory_order_relaxed);
+    latencyReportDirty.store (true, std::memory_order_release);
+    currentOsChoice = osChoice;
 }
 
 void CabRotProcessor::releaseResources()
@@ -403,6 +478,10 @@ void CabRotProcessor::releaseResources()
 
     deltaBuffer.setSize (0, 0);
     gateScratch.clear();
+    osChannelPointers.clear();
+
+    for (auto& os : oversamplers)
+        os.reset();
 }
 
 float CabRotProcessor::getBandReductionDb (int processedBand) const noexcept
@@ -620,6 +699,12 @@ void CabRotProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         return;
 
     const auto startedAt = juce::Time::getHighResolutionTicks();
+
+    const int osChoice = juce::jlimit (0, (int) oversamplers.size(),
+        juce::roundToInt (p.oversampling->load (std::memory_order_relaxed)));
+    if (osChoice != currentOsChoice)
+        applyOversamplingConfig (osChoice);
+
     updateDspParameters (numSamples);
     const bool listenToRemoved = listenToRemovedSignal;
     BlockTelemetry telemetry;
@@ -686,6 +771,37 @@ void CabRotProcessor::processChunk (juce::AudioBuffer<float>& block, int numChan
     telemetry.inputPeak = juce::jmax (telemetry.inputPeak,
                                       block.getMagnitude (0, numSamples));
 
+    if (auto* os = activeOversampler())
+    {
+        juce::dsp::AudioBlock<float> baseBlock (block.getArrayOfWritePointers(),
+                                                (size_t) numChannels,
+                                                (size_t) numSamples);
+        auto upBlock = os->processSamplesUp (baseBlock);
+
+        for (int ch = 0; ch < numChannels; ++ch)
+            osChannelPointers[(size_t) ch] = upBlock.getChannelPointer ((size_t) ch);
+
+        juce::AudioBuffer<float> upView (osChannelPointers.data(), numChannels,
+                                         (int) upBlock.getNumSamples());
+        processCore (upView, numChannels, (int) upBlock.getNumSamples(),
+                     listenToRemoved, telemetry);
+
+        os->processSamplesDown (baseBlock);
+    }
+    else
+    {
+        processCore (block, numChannels, numSamples, listenToRemoved, telemetry);
+    }
+
+    outputStage.process (block, numChannels, numSamples);
+    telemetry.outputPeak = juce::jmax (telemetry.outputPeak,
+                                       block.getMagnitude (0, numSamples));
+}
+
+void CabRotProcessor::processCore (juce::AudioBuffer<float>& block, int numChannels,
+                                   int numSamples, bool listenToRemoved,
+                                   BlockTelemetry& telemetry) noexcept
+{
     splitter.process (block, bandBuffers, numChannels, numSamples);
 
     // The band sum is the reference everything downstream measures against.
@@ -724,10 +840,6 @@ void CabRotProcessor::processChunk (juce::AudioBuffer<float>& block, int numChan
         mixer.processRemovedSignal (block, deltaBuffer, numChannels, numSamples);
     else
         mixer.process (block, deltaBuffer, numChannels, numSamples);
-
-    outputStage.process (block, numChannels, numSamples);
-    telemetry.outputPeak = juce::jmax (telemetry.outputPeak,
-                                       block.getMagnitude (0, numSamples));
 }
 
 juce::AudioProcessorEditor* CabRotProcessor::createEditor()

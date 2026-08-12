@@ -224,9 +224,11 @@ AMP PROFILE section (fills remaining height when available):
   button changes complete synchronously on the message thread, while an
   audio-thread generation guard prevents a block from reading a half-applied
   snapshot.
-- Right: the oversampling parameter and attachment remain for state
-  compatibility, but the OS label and combo stay hidden until real 2x/4x DSP
-  ships. Status text is `V0.1.0 / CLIPPING`, `/ PROCESSING`, or `/ IDLE`, with
+- Right: the oversampling combo (`OFF` / `2X` / `4X`, 64 x 22 px, hairline
+  outline, square) sits left of the status text. It is visible because it
+  drives real DSP: the reduction core runs at 1x/2x/4x with linear-phase
+  half-band FIR stages, and the resulting latency is reported to the host.
+  Status text is `V0.1.0 / CLIPPING`, `/ PROCESSING`, or `/ IDLE`, with
   that priority, and is driven by the same real telemetry as the meters.
 
 The Crypt is deleted from the front panel. The button opened nothing;
@@ -251,7 +253,7 @@ Square, hairline, no fill, per 7.3. Labels in mono-label 11 px.
 | # | Decision |
 |---|---|
 | 1 | 6 knobs in bottom row including Reap Mix |
-| 2 | Oversampling Off / 2x / 4x, default Off; control hidden until DSP exists |
+| 2 | Oversampling Off / 2x / 4x, default Off; visible since the real 2x/4x chain with host latency reporting landed |
 | 3 | Delta Listen = ghost icon in the header, inkDisabled to inkPrimary |
 | 4 | Wasp Meter has six log-frequency ticks and four truthful band names: BITE / PLASTIC / WASP / ICE |
 | 5 | Stereo Behavior lives in the advanced overlay (Phase 8 deliverable) |

@@ -31,8 +31,9 @@ FooterBar::FooterBar()
     oversample.addItem ("4X",  3);
     oversample.setSelectedId (1, juce::dontSendNotification);
     oversample.setJustificationType (juce::Justification::centredLeft);
+    // Visible since the real 2x/4x chain landed; the combo drives actual
+    // oversampled processing and host-reported latency.
     addAndMakeVisible (oversample);
-    oversample.setVisible (false);
 }
 
 void FooterBar::setABAvailable (bool available)
@@ -113,6 +114,10 @@ void FooterBar::resized()
     aButton.setBounds (abX, abY, abW / 2, abH);
     bButton.setBounds (abX + abW / 2, abY, abW / 2, abH);
 
-    oversample.setBounds ({ });
+    // Oversampling combo sits left of the status text, right-aligned.
+    const int osW = 64;
+    const int osH = 22;
+    oversample.setBounds (inner.getRight() - statusTextWidth() - 16 - osW,
+                          inner.getCentreY() - osH / 2, osW, osH);
 }
 } // namespace cabrot::ui

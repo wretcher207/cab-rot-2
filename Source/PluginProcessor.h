@@ -9,9 +9,11 @@
 #include "DSP/Tuning.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
 
 #include <array>
 #include <atomic>
+#include <memory>
 #include <vector>
 
 namespace cabrot
@@ -123,9 +125,14 @@ private:
 
     void initialiseModeSmoothing (double sampleRate) noexcept;
     void updateDspParameters (int numSamples) noexcept;
+    void applyOversamplingConfig (int osChoice);
+    juce::dsp::Oversampling<float>* activeOversampler() const noexcept;
     void processChunk (juce::AudioBuffer<float>& block, int numChannels,
                        int numSamples, bool listenToRemoved,
                        BlockTelemetry& telemetry) noexcept;
+    void processCore (juce::AudioBuffer<float>& block, int numChannels,
+                      int numSamples, bool listenToRemoved,
+                      BlockTelemetry& telemetry) noexcept;
 
     juce::UndoManager undoManager;
     juce::AudioProcessorValueTreeState apvts { *this, &undoManager,
@@ -166,6 +173,17 @@ private:
     juce::AudioBuffer<float> deltaBuffer;
     std::vector<float>       gateScratch;
 
+    // Phase 7 oversampling. The reduction core (split, detect, reduce, mix)
+    // runs at 1x/2x/4x; the trims stay at the host rate. A factor switch is
+    // applied at the top of processBlock with coefficient-only re-prepares,
+    // and the message-thread timer reports the resulting latency to the host.
+    static constexpr int kMaxOsFactor = 4;
+    std::array<std::unique_ptr<juce::dsp::Oversampling<float>>, 2> oversamplers; // [0]=2x, [1]=4x
+    int currentOsChoice { 0 };
+    std::atomic<int>  pendingLatencySamples { 0 };
+    std::atomic<bool> latencyReportDirty { false };
+    std::vector<float*> osChannelPointers;
+
     std::array<std::atomic<float>, numProcessedBands> bandReductionDb;
     std::array<std::atomic<float>, numProcessedBands> uiBandReductionMax;
     std::atomic<float> uiInputPeak { 0.0f };
@@ -191,6 +209,7 @@ private:
         std::atomic<float>* outputGain    {};
         std::atomic<float>* deltaListen   {};
         std::atomic<float>* mode          {};
+        std::atomic<float>* oversampling  {};
         std::atomic<float>* stereoLink    {};
         std::atomic<float>* clampSpeed    {};
         std::atomic<float>* maxReapDb     {};
