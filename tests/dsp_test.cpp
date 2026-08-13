@@ -1237,6 +1237,30 @@ void testPresets (Report& report)
                  + "\" vs \"" + PresetManager::factoryName (closestSecond)
                  + "\", differing by " + juce::String (closestPair, 6));
 
+    // ---- the twelve are reachable through the host's own program menu ----
+    {
+        CabRotProcessor processor;
+        prepareStereo (processor, sr, kDefaultBlockSize);
+
+        bool namesMatch = processor.getNumPrograms() == PresetManager::numFactoryPresets();
+        for (int i = 0; i < processor.getNumPrograms(); ++i)
+            namesMatch = namesMatch
+                      && processor.getProgramName (i) == PresetManager::factoryName (i);
+
+        report.check (namesMatch,
+                      "the twelve presets are exposed as host programs by name");
+
+        processor.setCurrentProgram (5);
+        const auto* modeParam = processor.getApvts().getParameter (params::mode);
+        const int loadedMode = modeParam != nullptr
+            ? juce::roundToInt (modeParam->convertFrom0to1 (modeParam->getValue()))
+            : -1;
+
+        report.check (processor.getCurrentProgram() == 5
+                      && loadedMode == cabrot::presets::kFactoryPresets[5].mode,
+                      "selecting a host program applies that preset");
+    }
+
     // ---- user preset round trip, including the apostrophe case ----
     {
         const juce::String awkwardName { "David's <Raw> \"Test\" & Preset" };

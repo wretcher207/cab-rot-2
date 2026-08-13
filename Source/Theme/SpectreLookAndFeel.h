@@ -41,6 +41,23 @@ public:
 
     juce::Font getComboBoxFont (juce::ComboBox&) override;
 
+    // Horizontal slider (Crypt advanced rows): hairline track, square fill
+    // to the current value, 1 px indicator. Same hover emphasis rule as the
+    // rotary. No thumb body, no gradient.
+    void drawLinearSlider (juce::Graphics&, int x, int y, int width, int height,
+                           float sliderPos, float minSliderPos, float maxSliderPos,
+                           juce::Slider::SliderStyle, juce::Slider&) override;
+
+    // Slider value readouts are numeric data, so they take the mono face
+    // like every other number in the interface.
+    juce::Label* createSliderTextBox (juce::Slider&) override;
+
+    // Toggle (Auto Gain, UI Animation): square hairline box with a straight
+    // two-stroke check. No rounded box, no tick glyph font.
+    void drawToggleButton (juce::Graphics&, juce::ToggleButton&,
+                           bool shouldDrawButtonAsHighlighted,
+                           bool shouldDrawButtonAsDown) override;
+
     // Linear bar, square corners. Kept for any ProgressBar consumer.
     void drawProgressBar (juce::Graphics&, juce::ProgressBar&,
                           int width, int height,

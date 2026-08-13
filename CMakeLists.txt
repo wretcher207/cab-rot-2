@@ -125,6 +125,8 @@ set(CABROT_UI_ATOMS
 set(CABROT_UI_REGIONS
     Source/UI/AmpProfileGrid.h
     Source/UI/AmpProfileGrid.cpp
+    Source/UI/CryptPanel.h
+    Source/UI/CryptPanel.cpp
     Source/UI/FizzReadout.h
     Source/UI/FizzReadout.cpp
     Source/UI/FooterBar.h

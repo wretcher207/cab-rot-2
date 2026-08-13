@@ -28,6 +28,7 @@ public:
     juce::TextButton& getButtonA()      noexcept { return aButton; }
     juce::TextButton& getButtonB()      noexcept { return bButton; }
     juce::ComboBox&   getOversampleBox() noexcept { return oversample; }
+    juce::TextButton& getCryptButton()   noexcept { return cryptButton; }
 
 private:
     juce::String formattedStatusText() const;
@@ -38,6 +39,7 @@ private:
     MeterPill        inMeter      { "IN" };
     MeterPill        outMeter     { "OUT" };
     juce::ComboBox   oversample;
+    juce::TextButton cryptButton { "CRYPT" };
     juce::String     statusText;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FooterBar)

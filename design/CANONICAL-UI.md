@@ -231,8 +231,45 @@ AMP PROFILE section (fills remaining height when available):
   Status text is `V0.1.0 / CLIPPING`, `/ PROCESSING`, or `/ IDLE`, with
   that priority, and is driven by the same real telemetry as the meters.
 
-The Crypt is deleted from the front panel. The button opened nothing;
-Phase 8's advanced overlay will get a real entry point when it ships.
+- Right, continued: a `CRYPT` button (66 x 22 px, hairline, square) sits left
+  of the oversampling combo. It opens the advanced overlay in 7.5a. It was
+  deleted from the front panel during the facelift because it opened nothing;
+  it is back because it now opens something real.
+
+### 7.5a CryptPanel (advanced overlay)
+
+Covers the whole editor. Ground is a flat `canvas` scrim at 88 percent, not a
+shadow, so the plugin behind stays legible as context. The panel itself is
+inset 56 x 44 px, filled `canvas`, framed with a 1 px `rule` hairline. Title
+`THE CRYPT` in DPD Display 16 px at 0.14em, `CLOSE` at the right of the same
+row, and a 1 px `rule` under the header band.
+
+Two columns under the header, split 38 / 62.
+
+- **Left, PRESETS.** A hairline-framed list of the twelve factory presets
+  followed by the user's own, separated by a 1 px `rule` rather than a header
+  row. Selected row is inkPrimary and Inter Medium; the rest are inkBody. User
+  rows carry a `USER` tag in mono-label 9 px at inkMeta. Click selects, double
+  click or Return loads. Under the list: `BIND SIGIL` saves the current
+  voicing under a name, `BANISH` deletes the selected user preset and is
+  disabled whenever the selection is a factory preset.
+- **Right, ADVANCED.** Seven labelled rows, mono-label 10 px in inkMeta on the
+  left. Detector Focus, Clamp Speed, Max Reap and Pick Window are horizontal
+  sliders: a 3 px `rule` track, a square fill to the value in inkBody
+  (inkPrimary while hovered or dragged), and a 1 px indicator that thickens to
+  1.5 px on hover, the same emphasis rule as the rotary. Values read out in
+  JetBrains Mono 11 px at inkBody, with the unit supplied by the parameter
+  itself and never doubled. Stereo Behavior is a hairline combo
+  (`LINKED` / `PARTIAL` / `DUAL MONO`). Auto Gain and UI Animation are square
+  hairline toggles whose check is two straight strokes, never a font glyph.
+
+Escape, `CLOSE`, or a click on the scrim outside the panel dismisses it.
+
+**Quality is deliberately absent.** It is declared in APVTS but drives
+nothing: its original meaning was FFT analysis resolution, and the UI truth
+pass declined the FFT input spectrum. A control without audio behavior stays
+hidden, so it stays off this panel until it means something. Detector Focus
+appears here only because it was given real per-band DSP first.
 
 ### 7.6 GhostToggle atom (Delta Listen)
 
@@ -256,7 +293,7 @@ Square, hairline, no fill, per 7.3. Labels in mono-label 11 px.
 | 2 | Oversampling Off / 2x / 4x, default Off; visible since the real 2x/4x chain with host latency reporting landed |
 | 3 | Delta Listen = ghost icon in the header, inkDisabled to inkPrimary |
 | 4 | Wasp Meter has six log-frequency ticks and four truthful band names: BITE / PLASTIC / WASP / ICE |
-| 5 | Stereo Behavior lives in the advanced overlay (Phase 8 deliverable) |
+| 5 | Stereo Behavior lives in the advanced overlay, shipped in Phase 8 as `CryptPanel` (7.5a) |
 | 6 | Continuous resize, aspect 1.5385 |
 | 7 | DPD mark in header at 16 x 16 |
 | 8 | Palette is the DPD brand kit, hand-maintained in `Source/Theme/Palette.h` |

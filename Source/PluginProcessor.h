@@ -7,6 +7,7 @@
 #include "DSP/ReapMixer.h"
 #include "DSP/TransientDetector.h"
 #include "DSP/Tuning.h"
+#include "Presets/PresetManager.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
@@ -71,16 +72,21 @@ public:
     bool isMidiEffect() const override                    { return false; }
     double getTailLengthSeconds() const override          { return 0.0; }
 
-    int  getNumPrograms() override                        { return 1; }
-    int  getCurrentProgram() override                     { return 0; }
-    void setCurrentProgram (int) override                 {}
-    const juce::String getProgramName (int) override      { return "Default"; }
+    // The twelve factory presets are exposed as host programs, so they show
+    // up in every host's own preset menu without a separate preset file
+    // format. User presets are not programs: the program list has to be
+    // fixed for the lifetime of the instance, and the user's folder is not.
+    int  getNumPrograms() override;
+    int  getCurrentProgram() override;
+    void setCurrentProgram (int) override;
+    const juce::String getProgramName (int) override;
     void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState& getApvts() noexcept { return apvts; }
+    presets::PresetManager&             getPresetManager() noexcept { return presetManager; }
     juce::UndoManager&                  getUndoManager() noexcept { return undoManager; }
     int getActiveAbSlot() const noexcept
     {
@@ -139,6 +145,10 @@ private:
     juce::AudioProcessorValueTreeState apvts { *this, &undoManager,
                                                juce::Identifier ("CABROT"),
                                                buildParameterLayout() };
+
+    // Owned by the processor, not the editor, so the current preset name
+    // survives the editor being closed and reopened.
+    presets::PresetManager presetManager { apvts };
 
     // A/B snapshots are detached APVTS trees. Parameter listeners can run on
     // the audio thread, so they only publish a requested slot; the processor

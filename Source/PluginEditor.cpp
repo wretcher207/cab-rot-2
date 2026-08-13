@@ -32,7 +32,8 @@ int scaleH (int reference, float scale, int floor)
 CabRotEditor::CabRotEditor (CabRotProcessor& p)
     : juce::AudioProcessorEditor (&p),
       processorRef (p),
-      lookAndFeel (std::make_unique<theme::SpectreLookAndFeel>())
+      lookAndFeel (std::make_unique<theme::SpectreLookAndFeel>()),
+      cryptPanel (p.getApvts(), p.getPresetManager())
 {
     setLookAndFeel (lookAndFeel.get());
 
@@ -42,6 +43,13 @@ CabRotEditor::CabRotEditor (CabRotProcessor& p)
     addAndMakeVisible (ampProfile);
     addAndMakeVisible (knobRow);
     addAndMakeVisible (footerBar);
+
+    addChildComponent (cryptPanel);
+    cryptPanel.onDismiss = [this] { setCryptOpen (false); };
+    footerBar.getCryptButton().onClick = [this]
+    {
+        setCryptOpen (! cryptPanel.isVisible());
+    };
 
     wireAttachments();
     headerBar.setDeltaAvailable (true);
@@ -62,6 +70,27 @@ CabRotEditor::~CabRotEditor()
     uiAnimationAttachment.reset();
     removeKeyListener (this);
     setLookAndFeel (nullptr);
+}
+
+void CabRotEditor::setCryptOpen (bool shouldBeOpen)
+{
+    if (shouldBeOpen == cryptPanel.isVisible())
+        return;
+
+    if (shouldBeOpen)
+    {
+        // The list is read from disk, so another instance may have saved or
+        // deleted a preset since this editor last looked.
+        cryptPanel.refreshPresetList();
+        cryptPanel.setBounds (getLocalBounds());
+        cryptPanel.toFront (true);
+    }
+
+    cryptPanel.setVisible (shouldBeOpen);
+    footerBar.getCryptButton().setToggleState (shouldBeOpen, juce::dontSendNotification);
+
+    if (! shouldBeOpen)
+        grabKeyboardFocus();
 }
 
 void CabRotEditor::wireAttachments()
@@ -323,5 +352,9 @@ void CabRotEditor::resized()
     fizzReadout.setBounds (rightColumn.removeFromTop (fizzH));
     rightColumn.removeFromTop (gap);
     ampProfile.setBounds (rightColumn);
+
+    // The overlay always covers the whole editor, open or not, so a resize
+    // while it is open does not leave it misaligned.
+    cryptPanel.setBounds (getLocalBounds());
 }
 } // namespace cabrot

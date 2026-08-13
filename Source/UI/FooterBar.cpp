@@ -34,6 +34,12 @@ FooterBar::FooterBar()
     // Visible since the real 2x/4x chain landed; the combo drives actual
     // oversampled processing and host-reported latency.
     addAndMakeVisible (oversample);
+
+    // The Crypt's real entry point. It was deleted from the front panel
+    // during the facelift because it opened nothing; the Phase 8 overlay
+    // gives it something to open.
+    cryptButton.setTooltip ("Advanced parameters and presets");
+    addAndMakeVisible (cryptButton);
 }
 
 void FooterBar::setABAvailable (bool available)
@@ -114,10 +120,15 @@ void FooterBar::resized()
     aButton.setBounds (abX, abY, abW / 2, abH);
     bButton.setBounds (abX + abW / 2, abY, abW / 2, abH);
 
-    // Oversampling combo sits left of the status text, right-aligned.
+    // Crypt entry, then the oversampling combo, then the status text,
+    // right-aligned as a group.
+    const int controlH = 22;
     const int osW = 64;
-    const int osH = 22;
-    oversample.setBounds (inner.getRight() - statusTextWidth() - 16 - osW,
-                          inner.getCentreY() - osH / 2, osW, osH);
+    const int cryptW = 66;
+    const int controlY = inner.getCentreY() - controlH / 2;
+
+    const int osX = inner.getRight() - statusTextWidth() - 16 - osW;
+    oversample .setBounds (osX, controlY, osW, controlH);
+    cryptButton.setBounds (osX - 12 - cryptW, controlY, cryptW, controlH);
 }
 } // namespace cabrot::ui

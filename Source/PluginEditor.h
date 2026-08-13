@@ -4,6 +4,7 @@
 
 #include "PluginProcessor.h"
 #include "UI/AmpProfileGrid.h"
+#include "UI/CryptPanel.h"
 #include "UI/FizzReadout.h"
 #include "UI/FooterBar.h"
 #include "UI/HeaderBar.h"
@@ -29,6 +30,7 @@ public:
 
 private:
     void wireAttachments();
+    void setCryptOpen (bool shouldBeOpen);
     void timerCallback() override;
     void setUiAnimationEnabled (bool enabled);
     juce::AudioProcessorValueTreeState& apvts() noexcept { return processorRef.getApvts(); }
@@ -42,6 +44,10 @@ private:
     ui::AmpProfileGrid  ampProfile;
     ui::KnobRow         knobRow;
     ui::FooterBar       footerBar;
+
+    // Added on top of everything else so the overlay's own hit testing wins;
+    // it is only visible while The Crypt is open.
+    ui::CryptPanel      cryptPanel;
 
     juce::TooltipWindow tooltipWindow { this, 500 };
 

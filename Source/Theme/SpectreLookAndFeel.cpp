@@ -150,6 +150,113 @@ juce::Font SpectreLookAndFeel::getComboBoxFont (juce::ComboBox&)
     return Fonts::mono (13.0f, 0.05f);
 }
 
+void SpectreLookAndFeel::drawLinearSlider (juce::Graphics& g,
+                                           int x, int y, int width, int height,
+                                           float sliderPos,
+                                           float minSliderPos, float maxSliderPos,
+                                           juce::Slider::SliderStyle style,
+                                           juce::Slider& slider)
+{
+    if (style != juce::Slider::LinearHorizontal)
+    {
+        LookAndFeel_V4::drawLinearSlider (g, x, y, width, height, sliderPos,
+                                          minSliderPos, maxSliderPos, style, slider);
+        return;
+    }
+
+    const bool emphasised = slider.isMouseOverOrDragging();
+    const bool enabled    = slider.isEnabled();
+
+    // A 3 px band, centred, so the row reads as a line of data rather than
+    // as a widget with a body.
+    const float bandHeight = 3.0f;
+    const float top = static_cast<float> (y) + (static_cast<float> (height) - bandHeight) * 0.5f;
+    const auto track = juce::Rectangle<float> (static_cast<float> (x), top,
+                                               static_cast<float> (width), bandHeight);
+
+    g.setColour (rule);
+    g.fillRect (track);
+
+    const float filledRight = juce::jlimit (track.getX(), track.getRight(), sliderPos);
+    if (filledRight > track.getX())
+    {
+        g.setColour (enabled ? (emphasised ? inkPrimary : inkBody) : inkDisabled);
+        g.fillRect (track.withRight (filledRight));
+    }
+
+    // Indicator: 1 px normally, 1.5 px while hovered or dragging, matching
+    // the rotary's emphasis rule.
+    const float indicatorWidth = emphasised ? 1.5f : 1.0f;
+    const float indicatorHeight = static_cast<float> (height) * 0.62f;
+    g.setColour (enabled ? inkPrimary : inkDisabled);
+    g.fillRect (juce::Rectangle<float> (
+        juce::jlimit (track.getX(), track.getRight() - indicatorWidth,
+                      sliderPos - indicatorWidth * 0.5f),
+        static_cast<float> (y) + (static_cast<float> (height) - indicatorHeight) * 0.5f,
+        indicatorWidth, indicatorHeight));
+}
+
+juce::Label* SpectreLookAndFeel::createSliderTextBox (juce::Slider& slider)
+{
+    auto* label = LookAndFeel_V4::createSliderTextBox (slider);
+
+    label->setFont (Fonts::mono (11.0f, 0.02f));
+    label->setJustificationType (juce::Justification::centredRight);
+    label->setColour (juce::Label::textColourId, inkBody);
+    label->setColour (juce::Label::backgroundColourId, juce::Colours::transparentBlack);
+    label->setColour (juce::Label::outlineColourId, juce::Colours::transparentBlack);
+    label->setColour (juce::Label::backgroundWhenEditingColourId, surface2);
+    label->setColour (juce::Label::textWhenEditingColourId, inkPrimary);
+    label->setColour (juce::Label::outlineWhenEditingColourId, rule);
+
+    return label;
+}
+
+void SpectreLookAndFeel::drawToggleButton (juce::Graphics& g,
+                                           juce::ToggleButton& button,
+                                           bool shouldDrawButtonAsHighlighted,
+                                           bool shouldDrawButtonAsDown)
+{
+    const bool on = button.getToggleState();
+    const bool hovered = shouldDrawButtonAsHighlighted || shouldDrawButtonAsDown;
+
+    const float boxSize = juce::jmin (14.0f, static_cast<float> (button.getHeight()) - 2.0f);
+    const auto box = juce::Rectangle<float> (
+        0.5f,
+        (static_cast<float> (button.getHeight()) - boxSize) * 0.5f + 0.5f,
+        boxSize, boxSize);
+
+    g.setColour (! button.isEnabled() ? inkDisabled
+                                      : (on ? inkPrimary : (hovered ? inkBody : rule)));
+    g.drawRect (box, 1.0f);
+
+    if (on)
+    {
+        // Two straight strokes. A tick from a font would be the only curved
+        // glyph in the interface.
+        juce::Path check;
+        check.startNewSubPath (box.getX() + boxSize * 0.24f, box.getY() + boxSize * 0.52f);
+        check.lineTo          (box.getX() + boxSize * 0.44f, box.getY() + boxSize * 0.72f);
+        check.lineTo          (box.getX() + boxSize * 0.78f, box.getY() + boxSize * 0.28f);
+
+        g.setColour (button.isEnabled() ? inkPrimary : inkDisabled);
+        g.strokePath (check, juce::PathStrokeType (1.5f));
+    }
+
+    const auto textArea = juce::Rectangle<int> (
+        juce::roundToInt (box.getRight() + 8.0f), 0,
+        button.getWidth() - juce::roundToInt (box.getRight() + 8.0f),
+        button.getHeight());
+
+    if (textArea.getWidth() > 0 && button.getButtonText().isNotEmpty())
+    {
+        g.setColour (! button.isEnabled() ? inkDisabled : (on ? inkPrimary : inkMeta));
+        g.setFont (Fonts::monoLabel (10.0f));
+        g.drawText (button.getButtonText(), textArea,
+                    juce::Justification::centredLeft, false);
+    }
+}
+
 void SpectreLookAndFeel::drawProgressBar (juce::Graphics& g, juce::ProgressBar& bar,
                                           int width, int height,
                                           double progress,
