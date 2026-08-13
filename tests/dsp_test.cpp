@@ -183,6 +183,76 @@ void testFizzAttenuation (Report& report)
 }
 
 // --------------------------------------------------------------------------
+// 3b. Detector Focus has to aim the reduction, not just exist in the state.
+//
+// Same knobs, same noise, three Focus settings. Focus low should pull harder
+// on BITE and back off ICE; Focus high should do the reverse; 50 should land
+// between the two on both bands. A knob that fails this is a dead control and
+// has no business being drawn.
+// --------------------------------------------------------------------------
+void testDetectorFocus (Report& report)
+{
+    constexpr double sr = 48000.0;
+
+    // Reduction measured in each end band, at one Focus setting.
+    struct BandPair { float bite; float ice; };
+
+    const auto measureAt = [] (float focus) -> BandPair
+    {
+        CabRotProcessor processor;
+        prepareStereo (processor, sr, kDefaultBlockSize);
+        setNeutral (processor);
+        setParam (processor, params::fizzHunt,      55.0f);
+        setParam (processor, params::edgePreserve,   0.0f);
+        setParam (processor, params::cabSmooth,    100.0f);
+        setParam (processor, params::digitalSand,  100.0f);
+        setParam (processor, params::airRot,        50.0f); // below the shelf
+        setParam (processor, params::reapMix,      100.0f);
+        setParam (processor, params::maxReapDb,     12.0f);
+        setParam (processor, params::detectorFocus, focus);
+        warmUp (processor, sr, kDefaultBlockSize);
+
+        juce::AudioBuffer<float> signal (2, kAnalysisLength);
+        PinkNoise noise;
+        for (int ch = 0; ch < 2; ++ch)
+            for (int n = 0; n < kAnalysisLength; ++n)
+                signal.setSample (ch, n, noise.next() * 0.35f);
+
+        juce::AudioBuffer<float> reference;
+        reference.makeCopyOf (signal);
+
+        runInPlace (processor, signal, kDefaultBlockSize);
+
+        const int skip = kFftSize;
+        const auto measured = averageSpectrum (signal   .getReadPointer (0) + skip, kAnalysisLength - skip, kFftOrder);
+        const auto original = averageSpectrum (reference.getReadPointer (0) + skip, kAnalysisLength - skip, kFftOrder);
+
+        return { bandDeltaDb (measured, original, 2400.0,  3800.0, sr, kFftSize),
+                 bandDeltaDb (measured, original, 8000.0, 12000.0, sr, kFftSize) };
+    };
+
+    const auto low  = measureAt (  0.0f);
+    const auto mid  = measureAt ( 50.0f);
+    const auto high = measureAt (100.0f);
+
+    report.note ("BITE: focus 0 " + juce::String (low.bite, 2)
+                 + " dB, 50 " + juce::String (mid.bite, 2)
+                 + " dB, 100 " + juce::String (high.bite, 2) + " dB");
+    report.note ("ICE:  focus 0 " + juce::String (low.ice, 2)
+                 + " dB, 50 " + juce::String (mid.ice, 2)
+                 + " dB, 100 " + juce::String (high.ice, 2) + " dB");
+
+    report.check (low.bite < high.bite - 0.5f,
+                  "Detector Focus low pulls harder on BITE than Focus high");
+    report.check (high.ice < low.ice - 0.5f,
+                  "Detector Focus high pulls harder on ICE than Focus low");
+    report.check (mid.bite > low.bite - 0.5f && mid.bite < high.bite + 0.5f,
+                  "Detector Focus 50 sits between the extremes on BITE");
+    report.check (mid.ice > high.ice - 0.5f && mid.ice < low.ice + 0.5f,
+                  "Detector Focus 50 sits between the extremes on ICE");
+}
+
+// --------------------------------------------------------------------------
 // 4. The differentiator: Edge Preserve must measurably spare pick attacks.
 // --------------------------------------------------------------------------
 void testTransientPreservation (Report& report)
@@ -1057,6 +1127,7 @@ int main()
         testReconstruction (report);
         testZeroKnobsAreExact (report);
         testFizzAttenuation (report);
+        testDetectorFocus (report);
         testTransientPreservation (report);
         testNoZipperNoise (report);
         testModeProfiles (report);

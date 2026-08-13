@@ -183,6 +183,7 @@ CabRotProcessor::CabRotProcessor()
     p.mode         = apvts.getRawParameterValue (params::mode);
     p.oversampling = apvts.getRawParameterValue (params::oversampling);
     p.stereoLink   = apvts.getRawParameterValue (params::stereoLink);
+    p.detectorFocus = apvts.getRawParameterValue (params::detectorFocus);
     p.clampSpeed   = apvts.getRawParameterValue (params::clampSpeed);
     p.maxReapDb    = apvts.getRawParameterValue (params::maxReapDb);
     p.pickWindow   = apvts.getRawParameterValue (params::pickWindow);
@@ -574,6 +575,7 @@ void CabRotProcessor::updateDspParameters (int numSamples) noexcept
     const float attackMs        = p.clampSpeed  ->load (std::memory_order_relaxed);
     const float windowMs        = p.pickWindow  ->load (std::memory_order_relaxed);
     const float stereoChoice    = p.stereoLink  ->load (std::memory_order_relaxed);
+    const float focusValue      = p.detectorFocus->load (std::memory_order_relaxed);
     const float inputGainDb     = p.inputGain   ->load (std::memory_order_relaxed);
     const float outputGainDb    = p.outputGain  ->load (std::memory_order_relaxed);
     const bool wantsAuto        = p.autoGain    ->load (std::memory_order_relaxed) > 0.5f;
@@ -639,10 +641,20 @@ void CabRotProcessor::updateDspParameters (int numSamples) noexcept
     // Knob to band, per PLAN.md's mapping. Order is BITE, PLASTIC, WASP, ICE.
     const float bandAmount[numProcessedBands] = { smooth, sand, sand, air };
 
+    // Detector Focus aims that threshold rather than moving it. Focus at 50
+    // gives tilt == 0, so every band keeps the untilted threshold exactly.
+    const float focusTilt = (juce::jlimit (0.0f, 1.0f, focusValue * 0.01f) - 0.5f) * 2.0f;
+
     for (int i = 0; i < numProcessedBands; ++i)
     {
+        // -1 at BITE through +1 at ICE.
+        const float bandPosition = numProcessedBands > 1
+            ? ((float) i / (float) (numProcessedBands - 1) - 0.5f) * 2.0f
+            : 0.0f;
+        const float focusOffsetDb = -focusTilt * bandPosition * kDetectorFocusMaxTiltDb;
+
         auto& reducer = reducers[(size_t) i];
-        reducer.setThresholdDb (thresholdDb);
+        reducer.setThresholdDb (thresholdDb + focusOffsetDb);
         reducer.setMaxReductionDb (bandAmount[i] * ceilingDb
                                    * advance (modeCeilingScale[(size_t) i]));
         reducer.setStereoLink (link);

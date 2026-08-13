@@ -36,8 +36,9 @@ inline const juce::String aOrB         { "aOrB" };
 inline const juce::String inputGain    { "inputGain" };
 inline const juce::String outputGain   { "outputGain" };
 
-// Crypt advanced - UI lands in Phase 8; parameters declared here so any
-// future automation lane can reach them without a state migration.
+// Crypt advanced. All of these carry real audio behavior except `quality`,
+// which stays declared but unexposed until it means something: its original
+// meaning was FFT analysis resolution and there is no FFT in this build.
 inline const juce::String stereoLink    { "stereoLink" };
 inline const juce::String detectorFocus { "detectorFocus" };
 inline const juce::String clampSpeed    { "clampSpeed" };
@@ -211,6 +212,7 @@ private:
         std::atomic<float>* mode          {};
         std::atomic<float>* oversampling  {};
         std::atomic<float>* stereoLink    {};
+        std::atomic<float>* detectorFocus {};
         std::atomic<float>* clampSpeed    {};
         std::atomic<float>* maxReapDb     {};
         std::atomic<float>* pickWindow    {};

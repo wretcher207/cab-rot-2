@@ -69,6 +69,16 @@ inline constexpr float kThresholdAtHundredDb = -52.0f; // Fizz Hunt = 100
 // Slope above threshold. 0.75 is a 4:1 equivalent.
 inline constexpr float kReductionSlope = 0.75f;
 
+// Detector Focus (Crypt) tilts that one threshold across the four processed
+// bands instead of moving it as a block. At 50 the tilt is exactly zero, so
+// the default is bit-identical to having no Focus control at all. Below 50 the
+// low bands (BITE, PLASTIC) get the more sensitive threshold; above 50 the
+// high bands (WASP, ICE) do. The outermost band swings by the full amount and
+// the inner two by a third of it, so the tilt reads as a slope, not a step.
+// 9 dB against Fizz Hunt's own 44 dB sweep: a real re-aim, not a second
+// Fizz Hunt.
+inline constexpr float kDetectorFocusMaxTiltDb = 9.0f;
+
 // Reducer ballistics. Clamp Speed (Crypt) scales the attack; release is
 // derived so fast settings do not chatter.
 inline constexpr float kReducerReleaseRatio = 6.0f; // release = attack * this
