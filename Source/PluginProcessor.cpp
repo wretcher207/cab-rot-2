@@ -859,36 +859,6 @@ juce::AudioProcessorEditor* CabRotProcessor::createEditor()
     return new CabRotEditor (*this);
 }
 
-int CabRotProcessor::getNumPrograms()
-{
-    return presets::PresetManager::numFactoryPresets();
-}
-
-int CabRotProcessor::getCurrentProgram()
-{
-    // A host program index only means anything while the state still matches
-    // the preset it came from. Once the user has moved a control the name is
-    // cleared, and there is no honest index to report, so report the first.
-    const auto name = presetManager.currentPresetName();
-
-    for (int i = 0; i < presets::PresetManager::numFactoryPresets(); ++i)
-        if (presets::PresetManager::factoryName (i) == name)
-            return i;
-
-    return 0;
-}
-
-void CabRotProcessor::setCurrentProgram (int index)
-{
-    presetManager.loadFactory (index);
-}
-
-const juce::String CabRotProcessor::getProgramName (int index)
-{
-    const auto name = presets::PresetManager::factoryName (index);
-    return name.isNotEmpty() ? name : juce::String ("Default");
-}
-
 void CabRotProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     const juce::ScopedLock lock (abStateLock);

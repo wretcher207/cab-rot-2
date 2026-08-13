@@ -72,14 +72,18 @@ public:
     bool isMidiEffect() const override                    { return false; }
     double getTailLengthSeconds() const override          { return 0.0; }
 
-    // The twelve factory presets are exposed as host programs, so they show
-    // up in every host's own preset menu without a separate preset file
-    // format. User presets are not programs: the program list has to be
-    // fixed for the lifetime of the instance, and the user's folder is not.
-    int  getNumPrograms() override;
-    int  getCurrentProgram() override;
-    void setCurrentProgram (int) override;
-    const juce::String getProgramName (int) override;
+    // Deliberately one program. Exposing the twelve factory presets here was
+    // tried on 2026-08-13 and reverted: once getNumPrograms() > 1, JUCE's
+    // VST3 wrapper adds a hidden program parameter to the controller, the
+    // controller and processor parameter lists stop agreeing, and pluginval
+    // at strictness 10 fails state restoration reading one parameter's value
+    // for another ("Auto Gain" returning 0.858664 for a bool). The presets
+    // are reachable through The Crypt, which costs nothing and breaks
+    // nothing. Do not re-enable programs without re-running pluginval.
+    int  getNumPrograms() override                        { return 1; }
+    int  getCurrentProgram() override                     { return 0; }
+    void setCurrentProgram (int) override                 {}
+    const juce::String getProgramName (int) override      { return "Default"; }
     void changeProgramName (int, const juce::String&) override {}
 
     void getStateInformation (juce::MemoryBlock& destData) override;

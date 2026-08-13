@@ -1237,28 +1237,17 @@ void testPresets (Report& report)
                  + "\" vs \"" + PresetManager::factoryName (closestSecond)
                  + "\", differing by " + juce::String (closestPair, 6));
 
-    // ---- the twelve are reachable through the host's own program menu ----
+    // ---- the program count stays at one, on purpose ----
+    // Raising it makes JUCE's VST3 wrapper add a hidden program parameter to
+    // the controller, which desynchronises the controller and processor
+    // parameter lists and fails pluginval's state restoration at strictness
+    // 10. Guarded here so the next person to try it finds out in seconds.
     {
         CabRotProcessor processor;
         prepareStereo (processor, sr, kDefaultBlockSize);
 
-        bool namesMatch = processor.getNumPrograms() == PresetManager::numFactoryPresets();
-        for (int i = 0; i < processor.getNumPrograms(); ++i)
-            namesMatch = namesMatch
-                      && processor.getProgramName (i) == PresetManager::factoryName (i);
-
-        report.check (namesMatch,
-                      "the twelve presets are exposed as host programs by name");
-
-        processor.setCurrentProgram (5);
-        const auto* modeParam = processor.getApvts().getParameter (params::mode);
-        const int loadedMode = modeParam != nullptr
-            ? juce::roundToInt (modeParam->convertFrom0to1 (modeParam->getValue()))
-            : -1;
-
-        report.check (processor.getCurrentProgram() == 5
-                      && loadedMode == cabrot::presets::kFactoryPresets[5].mode,
-                      "selecting a host program applies that preset");
+        report.check (processor.getNumPrograms() == 1,
+                      "the plugin exposes exactly one host program");
     }
 
     // ---- user preset round trip, including the apostrophe case ----
