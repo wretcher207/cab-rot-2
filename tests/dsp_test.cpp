@@ -8,8 +8,11 @@
 
 #include "TestSupport.h"
 
+#include "../Source/Presets/PresetManager.h"
+
 #include <chrono>
 #include <limits>
+#include <vector>
 
 using namespace cabrot;
 using namespace cabrot::test;
@@ -1114,6 +1117,182 @@ void testCpuBudget (Report& report)
 }
 } // namespace
 
+// --------------------------------------------------------------------------
+// 15. Presets. Gate 8 asks that all twelve load from a fresh instance, that
+// they sound distinctly different on the same input, and that a saved user
+// preset round-trips exactly. The apostrophe case is a named failure mode in
+// PLAN.md, so it gets its own check rather than being assumed.
+// --------------------------------------------------------------------------
+void testPresets (Report& report)
+{
+    constexpr double sr = 48000.0;
+    constexpr int renderLength = 48000;
+
+    using cabrot::presets::PresetManager;
+
+    juce::AudioBuffer<float> source (2, renderLength);
+    PinkNoise noise;
+    for (int ch = 0; ch < source.getNumChannels(); ++ch)
+        for (int n = 0; n < source.getNumSamples(); ++n)
+            source.setSample (ch, n, noise.next() * 0.25f);
+
+    // ---- every factory preset loads and lands on its own values ----
+    bool allLoaded = true;
+    bool allNamed = true;
+
+    for (int i = 0; i < PresetManager::numFactoryPresets(); ++i)
+    {
+        CabRotProcessor processor;
+        prepareStereo (processor, sr, kDefaultBlockSize);
+        PresetManager manager (processor.getApvts());
+
+        allLoaded = allLoaded && manager.loadFactory (i);
+        allNamed = allNamed
+                && manager.currentPresetName() == PresetManager::factoryName (i)
+                && PresetManager::factoryName (i).isNotEmpty();
+    }
+
+    report.check (allLoaded && allNamed,
+                  "all twelve factory presets load into a fresh instance");
+
+    // ---- a preset must not touch anything outside its scope ----
+    {
+        CabRotProcessor processor;
+        prepareStereo (processor, sr, kDefaultBlockSize);
+        PresetManager manager (processor.getApvts());
+
+        setParam (processor, params::inputGain,    -6.0f);
+        setParam (processor, params::outputGain,    3.0f);
+        setParam (processor, params::oversampling,  2.0f);
+
+        manager.loadFactory (7);
+
+        const auto valueOf = [&processor] (const juce::String& id)
+        {
+            auto* param = processor.getApvts().getParameter (id);
+            return param != nullptr ? param->convertFrom0to1 (param->getValue()) : 0.0f;
+        };
+
+        const bool trimsHeld = std::abs (valueOf (params::inputGain)  + 6.0f) < 0.05f
+                            && std::abs (valueOf (params::outputGain) - 3.0f) < 0.05f;
+        const bool osHeld = juce::roundToInt (valueOf (params::oversampling)) == 2;
+
+        report.check (trimsHeld && osHeld,
+                      "loading a preset leaves trims and oversampling alone");
+    }
+
+    // ---- twelve distinct sounds from the same input ----
+    const auto renderPreset = [&] (int index)
+    {
+        CabRotProcessor processor;
+        prepareStereo (processor, sr, kDefaultBlockSize);
+        PresetManager manager (processor.getApvts());
+        manager.loadFactory (index);
+        warmUp (processor, sr, kDefaultBlockSize, 400.0f);
+
+        juce::AudioBuffer<float> rendered;
+        rendered.makeCopyOf (source);
+        runInPlace (processor, rendered, kDefaultBlockSize);
+        return rendered;
+    };
+
+    std::vector<juce::AudioBuffer<float>> rendered;
+    rendered.reserve ((size_t) PresetManager::numFactoryPresets());
+    for (int i = 0; i < PresetManager::numFactoryPresets(); ++i)
+        rendered.push_back (renderPreset (i));
+
+    bool everyRenderFinite = true;
+    for (const auto& buffer : rendered)
+        everyRenderFinite = everyRenderFinite && allFinite (buffer);
+
+    report.check (everyRenderFinite, "every factory preset renders finite audio");
+
+    float closestPair = std::numeric_limits<float>::max();
+    int closestFirst = 0, closestSecond = 0;
+
+    for (size_t first = 0; first < rendered.size(); ++first)
+    {
+        for (size_t second = first + 1; second < rendered.size(); ++second)
+        {
+            float difference = 0.0f;
+            for (int ch = 0; ch < source.getNumChannels(); ++ch)
+                for (int n = 0; n < source.getNumSamples(); ++n)
+                    difference = juce::jmax (
+                        difference,
+                        std::abs (rendered[first].getSample (ch, n)
+                                  - rendered[second].getSample (ch, n)));
+
+            if (difference < closestPair)
+            {
+                closestPair = difference;
+                closestFirst = (int) first;
+                closestSecond = (int) second;
+            }
+        }
+    }
+
+    report.check (closestPair > 1.0e-3f,
+                  "all twelve factory presets produce distinct output");
+    report.note ("closest preset pair is \"" + PresetManager::factoryName (closestFirst)
+                 + "\" vs \"" + PresetManager::factoryName (closestSecond)
+                 + "\", differing by " + juce::String (closestPair, 6));
+
+    // ---- user preset round trip, including the apostrophe case ----
+    {
+        const juce::String awkwardName { "David's <Raw> \"Test\" & Preset" };
+
+        CabRotProcessor writer;
+        prepareStereo (writer, sr, kDefaultBlockSize);
+        PresetManager writeManager (writer.getApvts());
+
+        setParam (writer, params::fizzHunt,      37.5f);
+        setParam (writer, params::edgePreserve,  81.25f);
+        setParam (writer, params::cabSmooth,     12.0f);
+        setParam (writer, params::digitalSand,   66.0f);
+        setParam (writer, params::airRot,        94.0f);
+        setParam (writer, params::reapMix,       73.0f);
+        setParam (writer, params::detectorFocus, 22.0f);
+        setParam (writer, params::clampSpeed,    17.3f);
+        setParam (writer, params::maxReapDb,      9.4f);
+        setParam (writer, params::pickWindow,    11.6f);
+        setParam (writer, params::stereoLink,     1.0f);
+        setParam (writer, params::mode,           4.0f);
+
+        const bool saved = writeManager.saveUser (awkwardName);
+        report.check (saved, "a user preset with quotes and an apostrophe saves");
+
+        const bool listed = writeManager.userPresetNames().contains (awkwardName);
+        report.check (listed, "the saved user preset lists under its exact display name");
+
+        // Read the scope back on a fresh instance whose values all differ.
+        CabRotProcessor reader;
+        prepareStereo (reader, sr, kDefaultBlockSize);
+        PresetManager readManager (reader.getApvts());
+        readManager.loadFactory (0);
+
+        const bool loaded = readManager.loadUser (awkwardName);
+
+        bool exact = loaded;
+        for (const auto& id : PresetManager::presetScope())
+        {
+            auto* a = writer.getApvts().getParameter (id);
+            auto* b = reader.getApvts().getParameter (id);
+
+            if (a == nullptr || b == nullptr || a->getValue() != b->getValue())
+            {
+                exact = false;
+                break;
+            }
+        }
+
+        report.check (exact, "a saved user preset reloads to identical parameter values");
+
+        const bool deleted = readManager.deleteUser (awkwardName);
+        const bool gone = ! readManager.userPresetNames().contains (awkwardName);
+        report.check (deleted && gone, "Banish removes the user preset from disk");
+    }
+}
+
 int main()
 {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -1138,6 +1317,7 @@ int main()
         testDeltaListen (report);
         testAbSnapshots (report);
         testOversampling (report);
+        testPresets (report);
         testCpuBudget (report);
     }
     catch (const std::exception& e)

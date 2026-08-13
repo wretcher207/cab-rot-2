@@ -152,11 +152,18 @@ set(CABROT_DSP_SOURCES
     Source/DSP/ReapMixer.cpp
 )
 
+set(CABROT_PRESET_SOURCES
+    Source/Presets/FactoryPresets.h
+    Source/Presets/PresetManager.h
+    Source/Presets/PresetManager.cpp
+)
+
 set(CABROT_SHARED_SOURCES
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
+    ${CABROT_PRESET_SOURCES}
     ${CABROT_THEME_SOURCES}
     ${CABROT_UI_ATOMS}
     ${CABROT_UI_REGIONS}
