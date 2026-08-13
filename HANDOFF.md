@@ -1,10 +1,10 @@
 # Cab Rot - Session Handoff
 
-**Last updated**: 2026-08-12 (real 2x/4x oversampling landed; pluginval strictness 10 passes)
+**Last updated**: 2026-08-13 (Phase 8 landed: Detector Focus made real, twelve presets, The Crypt overlay)
 **Repo**: https://github.com/wretcher207/cab-rot-2 (PUBLIC)
 **Working dir**: `C:\Users\wretc\workspace\cab-rot` (the old `C:\Users\david\...` Mac-era paths in this file are dead)
 **Branch / verified implementation baseline**: `fix/ui-truth`, tracked by `origin/fix/ui-truth`, with code through `24fa790`. `main` and `origin/main` remain at `17caba9`.
-**Current phase**: Phase 4 DSP and UI truth Tiers 1 through 3 are implemented. Six provisional modes are visible and tested; David's by-ear approval is still open. Phase 7 is now complete: real 2x/4x oversampling with host latency reporting landed on 2026-08-12 and the OS combo is visible.
+**Current phase**: Phases 4 through 8 are implemented. Six provisional modes and twelve provisional presets are visible and tested; David's by-ear approval on both is still open. Phase 7 closed on 2026-08-12 (real 2x/4x oversampling with host latency reporting). Phase 8 closed on 2026-08-13 (twelve factory presets, The Crypt advanced overlay, Detector Focus given real DSP). Next is Phase 9 stress and automation testing; pluginval strictness 10 already passes.
 
 ---
 
@@ -36,13 +36,17 @@ The single source of truth for the build sequence is [PLAN.md](PLAN.md). Per-ele
 | UI truth Tiers 1-2 | `2e61723` → `ef092c7` on `fix/ui-truth` | Removed fabricated UI, added one editor-owned 30 Hz telemetry poll, live reduction columns and peaks, real Fizz/CPU/meters/status, correct-polarity Delta Listen, deep persisted A/B snapshots, truthful knob defaults/units/interaction, and hid mode/OS controls that still lacked DSP. |
 | UI truth Tier 3 | `3d03744` | Added the exact six-profile provisional mode table, 300 ms ramps for all derivatives, no-click/distinct-output tests, and revealed the now-functional grid. |
 | A/B coherence | `24fa790` | Made A/B a synchronous non-automatable meta operation for UI use, guarded APVTS replacement with an audio-thread generation check, and strengthened the rapid-write regression. |
+| 7 | `16ea74b` | Real 2x/4x oversampling with hand-built linear-phase FIR half-band stages and host latency reporting. The OS combo is visible. |
+| 8 | `2f0c573` → `e614a26` | Detector Focus given real per-band DSP, twelve factory presets plus a PresetManager with user save/load/delete, The Crypt advanced overlay with a preset browser, and the host program list tried and reverted. |
 
-The final five-target Release build from `26606b1` (code baseline `24fa790`) succeeded for VST3,
+The current five-target Release build, at `e614a26`, succeeds for VST3,
 Standalone, PassthroughTest, DspTest, and ThemeTest with 0 warnings and 0
-errors. Passthrough is 3/3 and DSP is 37/37 with the CPU benchmark skipped.
+errors. Passthrough is 3/3. DSP is **59/59** with the CPU benchmark live and
+**57/57** with `CABROT_SKIP_CPU_BENCH=1`. pluginval v1.0.4 at strictness 10
+passes in process on a clean VST3 rebuild.
 
 Current agent-reviewed captures are `design/screenshots/ui-truth-final-default.png`,
-`ui-truth-final-min.png`, and `ui-truth-final-max.png`. The directory is
+`ui-truth-final-min.png`, `ui-truth-final-max.png`, and `crypt-open.png`. The directory is
 gitignored. Any Phase 3.5 or facelift screenshot is historical and must not be
 used as the current visual target.
 
@@ -224,8 +228,9 @@ The pluginval mention in the risk register: start running pluginval continuously
 - `tests/passthrough_test.cpp` — the fast transparency gate. Repurposed from the Phase 0 sample-perfect null, which the Phase 4 topology retired.
 - `tests/dsp_test.cpp`: DSP and UI-truth gate, including full-host-block
   telemetry aggregation, Delta polarity, A/B values/audio/persistence/legacy
-  loading, and the machine-dependent CPU benchmark. The skipped-CPU baseline
-  currently reports 37 assertions.
+  loading, Detector Focus band tilt, the twelve presets, the user-preset round
+  trip, and the machine-dependent CPU benchmark. Currently 57 assertions with
+  the CPU benchmark skipped, 59 with it live.
 
 ---
 
@@ -242,8 +247,17 @@ The pluginval mention in the risk register: start running pluginval continuously
   2x/4x oversampling with host latency reporting are all done. The OS combo
   is visible in the footer. Gate 7's 8% CPU guess is superseded by a
   measured 13% gate; see the 2026-08-12 changelog entry.
-- **Phase 8** — 12 starter presets + The Crypt advanced overlay (Crypt parameters already declared in APVTS so state migration is free).
-- **Phase 9** — pluginval strictness 10; 100-instance + 64-track stress; full automation lane test; resize stress.
+- **Phase 8**: Complete as of 2026-08-13. Twelve factory presets, user
+  save/load/delete, and The Crypt advanced overlay. **Two Gate 8 conflicts,
+  same shape as Gate 4's and Gate 7's, resolved rather than ticked:** the
+  Quality box asks that Ritual double the FFT size, but the UI truth pass
+  declined the FFT input spectrum, so `quality` has no meaning and stays
+  hidden rather than becoming a dead control. The `.vstpreset` box asks that
+  those files load in REAPER's VST3 preset menu, but REAPER's FX preset
+  dropdown is its own `.ini` system, not `.vstpreset`. David chose on
+  2026-08-13 to close the gate without the files.
+- **Phase 9** — pluginval strictness 10 (already passing); 100-instance +
+  64-track stress; full automation lane test; resize stress.
 - **Phase 10** — Windows installer (Inno Setup or NSIS), 3 demo audio clips, demo video, Quickstart PDF, Gumroad bundle prep, landing page. macOS becomes Phase 11 after v1.0 ships.
 
 ---
@@ -323,6 +337,19 @@ These are documented because they bit at least once during the build:
   `UndoManager`, so knob-edit undo history does not span an A/B comparison.
   Treat that as an explicit current tradeoff unless snapshot application is
   redesigned as a parameter transaction.
+- **Do not raise `getNumPrograms()` above 1.** Exposing the twelve factory
+  presets as host programs looked free and broke pluginval at strictness 10
+  on 2026-08-13. Once the count exceeds one, JUCE's VST3 wrapper adds a hidden
+  program parameter to the controller, the controller and processor parameter
+  lists stop agreeing, and state restoration reads one parameter's value for
+  another: it asked for Auto Gain, a bool, and got 0.858664. Confirmed by
+  bisect and reverted in `e614a26`. A test now asserts the count stays at one.
+  The presets are reached through The Crypt instead.
+- **A parameter can sit in APVTS for five phases without driving anything.**
+  `detectorFocus` was declared in Phase 3 and reached no DSP until Phase 8;
+  `quality` still reaches nothing. Before drawing any control, grep for the
+  parameter id in `Source/DSP/` and confirm it lands somewhere. The UI truth
+  invariant is only as good as that check.
 - **`PrintWindow` flag 2** is required on JUCE 8 (Direct2D). Flag 0 returns black. `tools/visual-diff.ps1` already uses flag 2.
 - **Benchmarking a plugin over one long buffer measures the wrong thing.** The first CPU test here streamed 30 seconds of audio (11.5 MB) in a single pass and read 3 to 7% with wild run-to-run variance. That is memory bandwidth, not the plugin: a real host hands over 512 samples at a time out of warm cache. Timing the best of nine passes over a 2-second cache-resident buffer gives 2.6% and repeats to within 0.05%. Same code, same flags. If a CPU figure here ever looks alarming, check the harness before optimising anything.
 - **The test targets did not link LTO** while the plugin target did, so the benchmark was measuring a slower binary than the one that ships. `juce::juce_recommended_lto_flags` is on all three test targets now. Keep it that way when adding a target.
@@ -351,6 +378,9 @@ cab-rot-2/
 │   ├── PluginProcessor.{h,cpp}     # APVTS, DSP, telemetry, Delta, A/B persistence
 │   ├── PluginEditor.{h,cpp}        # regions, attachments, one 30 Hz telemetry poll
 │   ├── DSP/ModeConfig.h             # provisional six-profile derivative table
+│   ├── Presets/
+│   │   ├── FactoryPresets.h        # the provisional twelve
+│   │   └── PresetManager.{h,cpp}   # preset scope, user save/load/delete
 │   ├── Theme/
 │   │   ├── Palette.h               # hand-maintained DPD colour tokens
 │   │   ├── Fonts.{h,cpp}           # SpinLock-guarded typeface cache + 5 typography slots
@@ -361,6 +391,7 @@ cab-rot-2/
 │       ├── WaspMeter.{h,cpp}       # live four-band reduction columns on log axis
 │       ├── FizzReadout.{h,cpp}
 │       ├── AmpProfileGrid.{h,cpp}
+│       ├── CryptPanel.{h,cpp}      # advanced overlay + preset browser
 │       ├── KnobRow.{h,cpp}
 │       ├── FooterBar.{h,cpp}
 │       ├── ThemeTest.{h,cpp}       # phase-1 visual-diff harness, separate target
@@ -374,7 +405,10 @@ cab-rot-2/
     └── install-vst3.ps1            # user-scope install with optional -KillBlockers
 ```
 
-The Crypt advanced parameters are declared in APVTS but the UI lands in Phase 8. New phases that add UI for them won't trigger a state migration since the params already exist.
+The Crypt advanced UI shipped in Phase 8 as `Source/UI/CryptPanel.{h,cpp}`,
+with the preset engine in `Source/Presets/`. Seven of the eight advanced
+parameters are exposed; `quality` remains declared and hidden because it
+drives nothing.
 
 ---
 
@@ -410,14 +444,42 @@ $env:CABROT_SKIP_CPU_BENCH='1'
 
 4. Preserve the untracked review prompt, UI fix spec, and `references/` unless
    David explicitly changes their disposition.
-5. The UI truth implementation baseline is `24fa790`; the oversampling work
-   sits on top of it on `fix/ui-truth`. Re-run the two suites before new work
-   (46 DSP assertions with the CPU bench live, 44 with it skipped). David's
-   ear check is still required before calling the six profiles release-ready.
+5. The UI truth implementation baseline is `24fa790`; oversampling and Phase 8
+   sit on top of it on `fix/ui-truth`, through `e614a26`. Re-run the two suites
+   before new work (59 DSP assertions with the CPU bench live, 57 with it
+   skipped). David's ear check is still required before calling either the six
+   profiles or the twelve presets release-ready.
 
 ---
 
 ## Changelog
+
+- **2026-08-13**: Phase 8 landed on `fix/ui-truth`, commits `2f0c573` through
+  `e614a26`. **Detector Focus was made real before it was drawn**: it had been
+  declared in APVTS since Phase 3 and reached nothing, and now tilts the Fizz
+  Hunt detection threshold across the four processed bands, with 50 as exactly
+  zero tilt so the default stays bit-identical to the old single-threshold
+  path. Measured on pink noise with both band knobs open, BITE moves -4.54 dB
+  to -0.07 dB and ICE moves -0.34 dB to -3.47 dB across its travel.
+  `PresetManager` owns loading, saving, listing and deleting; `presetScope()`
+  is the single place that decides what a preset may touch, and it excludes
+  trims, oversampling, Delta Listen, the A/B slot and UI Animation, so loading
+  a preset can never quietly cost four times the CPU. User presets are one XML
+  file each under the user application data folder, with the display name in a
+  ValueTree property and a hashed filename, so an apostrophe survives the round
+  trip. The twelve factory values are provisional in the same sense the mode
+  table is: built from the tuning ranges, not from listening. The Crypt overlay
+  ships with a preset browser (Bind Sigil, Banish) and seven advanced controls;
+  `quality` stays hidden because it drives nothing. `SpectreLookAndFeel` gained
+  a horizontal slider and a square toggle, and slider readouts now take
+  JetBrains Mono. `design/CANONICAL-UI.md` gained section 7.5a. **One
+  regression was introduced and caught the same day**: exposing the presets as
+  host programs broke pluginval strictness 10, and was bisected and reverted;
+  see the gotcha above. Final state: five Release targets 0 warnings 0 errors,
+  passthrough 3/3, DSP 57/57 with the CPU benchmark skipped, pluginval v1.0.4
+  strictness 10 SUCCESS on a clean VST3 rebuild. The installed VST3 still
+  predates oversampling and Phase 8; do not install over it without an
+  explicit request.
 
 - **2026-08-12**: Phase 7 oversampling landed on `fix/ui-truth`. The reduction
   core (split, detect, reduce, mix) now runs at 1x/2x/4x behind
