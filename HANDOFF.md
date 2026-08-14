@@ -1,3 +1,5 @@
+> status: active | one-liner: JUCE plugin phases 4 through 8 landed, every panel control drives real DSP, pluginval strictness 10 passes | next: Phase 9 stress and automation testing, plus David's by-ear approval on the provisional modes and presets
+
 # Cab Rot - Session Handoff
 
 **Last updated**: 2026-08-13 (Phase 8 landed: Detector Focus made real, twelve presets, The Crypt overlay)
