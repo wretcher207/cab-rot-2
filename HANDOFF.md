@@ -528,3 +528,7 @@ $env:CABROT_SKIP_CPU_BENCH='1'
   3.5(a) had shipped. The then-current Throat-Wire and toxic-green direction,
   pending placeholder curve, idle breath, and Phase 4 next-step notes must not
   be resumed. They are retained only as project history.
+
+## 2026-09-10: agent instruction audit
+
+Updated the local agent guidance to use task-relevant references and the shared autonomy/voice-profile agreement. Product and taste requirements remain in the instructions. Verified the instruction diff and reference paths; application behavior was not part of this documentation audit. Full file-by-file record: `C:/Users/wretc/workspace/AGENTS-AUDIT-2026-09-10.md`.
