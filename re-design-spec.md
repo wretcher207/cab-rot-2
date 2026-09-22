@@ -141,7 +141,7 @@ This implementation is divided into **5 sequential phases**.
 
 #### Tasks:
 1. Implement a lightweight FFT analyzer block (e.g., 2048 or 4096 bins) running on the incoming audio signal.
-2. Apply a temporal smoothing factor ($lpha pprox 0.85$ to $0.95$) to the FFT magnitudes to eliminate frantic flickering.
+2. Apply a temporal smoothing factor ($\alpha \approx 0.85$ to $0.95$) to the FFT magnitudes to eliminate frantic flickering.
 3. Draw the background grid: 4 horizontal decibel lines and 5 vertical frequency lines (e.g., 200Hz, 1kHz, 2kHz, 5kHz, 10kHz) using ultra-faint 0.5px lines (`#1C1C21`).
 4. **The Reduction Curve Rendering:** Map the attenuation data across the spectrum. Render this as a solid filled polygon shifting downwards from the top reference ceiling (`0 dB`). The fill should use an elegant gradient going from `#D4A359` with $25\%$ opacity at the top edge to $0\%$ opacity at its lowest peak, mimicking a translucent curtain.
 
