@@ -87,4 +87,4 @@ Earlier notes here pointed at `../throatwire/` as a sibling. **No such repo exis
 
 ## Writing
 Any marketing copy, product descriptions, or tagline work: read David's voice profile before writing anything.
-`C:/Users/wretc/second-brain/writing/david-voice-profile.md`. Review the final copy against the profile before delivery.
+`C:/Users/wretc/second-brain/knowledge/david-voice-profile.md`. Review the final copy against the profile before delivery.
