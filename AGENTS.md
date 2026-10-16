@@ -42,7 +42,7 @@ real processing, and a control without audio behavior stays hidden.
   shadows. Colour is either a real state or part of the work being shown, so the
   only conditional colours are `#7FA57A` for genuinely live and `#C4574C` past
   12 dB of reduction. Binding document is
-  `dead-pixel-design-v4/brand-kit/AI-BRAND-BRIEF.md`.
+  `../dead-pixel-design-v4/brand-kit/AI-BRAND-BRIEF.md`.
 - Pricing: $29 launch / $49 normal / $69 bundle
 
 **Superseded on 2026-08-10, do not reach for these.** "Spectre Codex v2", deep
@@ -68,7 +68,6 @@ verified implementation state.
   poll that drives all visible instruments.
 - `Source/PluginProcessor.cpp`: DSP, lock-free UI telemetry, Delta Listen,
   and message-thread A/B snapshot handoff and persistence.
-- `tools/oklch-to-srgb.py`: deleted. It generated the old Stitch palette.
 - `tests/passthrough_test.cpp`: transparency gate
 - `tests/dsp_test.cpp`: DSP and UI-truth gate. Its CPU check measures the
   machine, so set `CABROT_SKIP_CPU_BENCH=1` on a loaded box and read the printed
@@ -78,13 +77,9 @@ verified implementation state.
 ## Build
 There is no `build.ps1` in this repo; earlier notes here were wrong about that. Use the CMake commands in HANDOFF.md.
 Toolchain on this machine is **VS 2022 Build Tools** (generator `Visual Studio 17 2022`). The VS 18 / 2026 install present here has no CMake component, so the old Mac-era command path fails.
-VST3 installs to: `C:\Users\wretc\AppData\Local\Programs\Common\VST3\`
+VST3 installs to: `C:\Users\wretc\AppData\Local\Programs\Common\VST3\` (`tools/install-vst3.ps1`).
 Baseline: 0 warnings, 0 errors.
 
 ## Sibling project
 `wretcher207/dead-pixel-harmonix` (private, remote only) is MSV-1, the first DPH plugin: Projucer-based, four DSP modules, brass/CRT UI. Cab Rot is DPH product #2.
 Earlier notes here pointed at `../throatwire/` as a sibling. **No such repo exists**, locally or on GitHub. "Throat-Wire" was a visual mockup that influenced the Phase 3.5 knob work, nothing more.
-
-## Writing
-Any marketing copy, product descriptions, or tagline work: read David's voice profile before writing anything.
-`C:/Users/wretc/second-brain/knowledge/david-voice-profile.md`. Review the final copy against the profile before delivery.
